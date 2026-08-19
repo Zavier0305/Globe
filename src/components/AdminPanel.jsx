@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
-import { supabase, POSES_TABLE } from '../lib/supabaseClient'
+import { useEffect, useRef, useState } from 'react'
+import { supabase, POSES_TABLE, POSE_IMAGES_BUCKET } from '../lib/supabaseClient'
 import { adminDeletePose } from '../lib/deletePose'
+import { COUNTRIES } from '../lib/countries'
+import { resizeImageFile } from '../lib/resizeImage'
 
 const SESSION_KEY = 'pose-admin-password'
 const ALL_POSES_LIMIT = 200
@@ -16,6 +18,14 @@ export default function AdminPanel() {
   const [reportedPoses, setReportedPoses] = useState([])
   const [allPoses, setAllPoses] = useState([])
   const [actionMsg, setActionMsg] = useState(null)
+
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newFile, setNewFile] = useState(null)
+  const [newPreviewUrl, setNewPreviewUrl] = useState(null)
+  const [newCountryCode, setNewCountryCode] = useState('')
+  const [addSubmitting, setAddSubmitting] = useState(false)
+  const [addError, setAddError] = useState(null)
+  const addFileInputRef = useRef(null)
 
   async function loadReported(pw) {
     setLoading(true)
@@ -69,6 +79,78 @@ export default function AdminPanel() {
     setActionMsg('削除しました。')
   }
 
+  function handleAddFileChange(e) {
+    const f = e.target.files && e.target.files[0]
+    if (!f) return
+    setNewFile(f)
+    setNewPreviewUrl(URL.createObjectURL(f))
+  }
+
+  function resetAddForm() {
+    setNewFile(null)
+    setNewPreviewUrl(null)
+    setNewCountryCode('')
+    setAddError(null)
+    if (addFileInputRef.current) addFileInputRef.current.value = ''
+  }
+
+  async function handleAddSubmit(e) {
+    e.preventDefault()
+    setAddError(null)
+    if (!newFile) {
+      setAddError('画像ファイルを選択してください。')
+      return
+    }
+    const country = COUNTRIES.find((c) => c.code === newCountryCode)
+    if (!country) {
+      setAddError('国を選択してください。')
+      return
+    }
+
+    setAddSubmitting(true)
+    try {
+      const resized = await resizeImageFile(newFile)
+      const ext = (resized.name.split('.').pop() || 'jpg').toLowerCase()
+      const path = `${country.code}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from(POSE_IMAGES_BUCKET)
+        .upload(path, resized, { cacheControl: '3600', upsert: false })
+      if (uploadError) {
+        console.error(uploadError)
+        setAddError('画像のアップロードに失敗しました。')
+        return
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from(POSE_IMAGES_BUCKET)
+        .getPublicUrl(path)
+
+      const { error: insertError } = await supabase.rpc('create_pose', {
+        p_country_code: country.code,
+        p_country_name: country.name_ja,
+        p_image_url: publicUrlData.publicUrl,
+        p_storage_path: path,
+      })
+      if (insertError) {
+        console.error(insertError)
+        setAddError('投稿の登録に失敗しました。')
+        return
+      }
+
+      resetAddForm()
+      setShowAddForm(false)
+      setActionMsg('投稿を追加しました。')
+      setTab('all')
+      await loadAllPoses()
+    } catch (err) {
+      console.error(err)
+      setAddError('追加に失敗しました。もう一度お試しください。')
+    } finally {
+      setAddSubmitting(false)
+    }
+  }
+
   if (!authed) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface px-4">
@@ -110,14 +192,87 @@ export default function AdminPanel() {
       <div className="mx-auto max-w-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-lg font-bold text-ink">管理者パネル</h1>
-          <button
-            type="button"
-            onClick={() => (tab === 'reported' ? loadReported(password) : loadAllPoses())}
-            className="rounded-lg border border-line bg-white px-3 py-1 text-sm text-ink"
-          >
-            再読み込み
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowAddForm((v) => !v)}
+              className="rounded-lg bg-accent px-3 py-1 text-sm font-semibold text-white"
+            >
+              ＋ 投稿を追加
+            </button>
+            <button
+              type="button"
+              onClick={() => (tab === 'reported' ? loadReported(password) : loadAllPoses())}
+              className="rounded-lg border border-line bg-white px-3 py-1 text-sm text-ink"
+            >
+              再読み込み
+            </button>
+          </div>
         </div>
+
+        {showAddForm && (
+          <form
+            onSubmit={handleAddSubmit}
+            className="mb-4 flex flex-col gap-3 rounded-xl border border-line bg-white p-4 shadow-sm"
+          >
+            <h2 className="font-bold text-ink">投稿を手動で追加</h2>
+
+            {newPreviewUrl ? (
+              <img
+                src={newPreviewUrl}
+                alt="プレビュー"
+                className="h-40 w-full rounded-lg object-cover"
+              />
+            ) : (
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-accent/40 bg-accentsoft/30 py-8 text-accent">
+                <span className="text-2xl">📷</span>
+                <span className="text-sm font-semibold">画像ファイルを選択</span>
+                <input
+                  ref={addFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAddFileChange}
+                />
+              </label>
+            )}
+
+            <select
+              value={newCountryCode}
+              onChange={(e) => setNewCountryCode(e.target.value)}
+              className="w-full rounded-lg border border-line bg-white px-3 py-2 text-ink"
+            >
+              <option value="">国を選択してください</option>
+              {COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name_ja}({c.name_en})
+                </option>
+              ))}
+            </select>
+
+            {addError && <p className="text-sm text-red-600">{addError}</p>}
+
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={addSubmitting}
+                className="flex-1 rounded-lg bg-accent py-2 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {addSubmitting ? '追加中...' : '追加する'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  resetAddForm()
+                  setShowAddForm(false)
+                }}
+                className="rounded-lg border border-line bg-white px-4 py-2 text-sm text-ink"
+              >
+                キャンセル
+              </button>
+            </div>
+          </form>
+        )}
 
         <div className="mb-4 flex gap-2">
           <button
