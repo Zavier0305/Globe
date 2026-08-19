@@ -1,13 +1,14 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// デフォルト値はSupabaseのpublic anon keyで、クライアント公開前提の値です。
+// 別プロジェクトを使う場合は環境変数(.env / Vercelのプロジェクト設定)で上書きしてください。
+const DEFAULT_SUPABASE_URL = 'https://ichvuncoiyffzjvbmswi.supabase.co'
+const DEFAULT_SUPABASE_ANON_KEY =
+  'sb_publishable_tsHY0-6akyn5O0OtTs1GkQ_SjLjuPt8'
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error(
-    'Supabaseの環境変数が設定されていません。.env.exampleを参考に.envを作成してください。'
-  )
-}
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL
+const supabaseAnonKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
