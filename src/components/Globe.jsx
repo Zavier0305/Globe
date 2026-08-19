@@ -4,6 +4,8 @@ import GlobeGL from 'react-globe.gl'
 const NEW_PIN_WINDOW_MS = 60 * 1000
 const DEFAULT_VIEW = { lat: 20, lng: 20, altitude: 2.2 }
 const IDLE_RETURN_MS = 20 * 1000
+const OVERVIEW_HOLD_MS = 8 * 1000
+const TOUR_HOLD_MS = 4 * 1000
 
 function aggregateByCountry(points) {
   const map = new Map()
@@ -43,6 +45,8 @@ export default function Globe({
   })
   const lastInteractionRef = useRef(Date.now())
   const idleReturnedRef = useRef(true)
+  const tourStateRef = useRef({ phase: 'overview', phaseStartedAt: Date.now(), tourIndex: 0 })
+  const countryPointsRef = useRef([])
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000)
@@ -73,16 +77,48 @@ export default function Globe({
     return () => controls.removeEventListener('start', markInteraction)
   }, [])
 
-  // 一定時間操作がなければ自動回転と全体ビューに戻す(プロジェクター展示向け)
+  // 一定時間操作がなければ、全体ビュー(自動回転)と各国ピンの自動巡回を交互に行う
+  // (プロジェクター展示で誰も触っていない間、勝手に紹介してくれる「自動プレゼンモード」)
   useEffect(() => {
     const id = setInterval(() => {
       if (!globeRef.current) return
+      const controls = globeRef.current.controls()
       const idleFor = Date.now() - lastInteractionRef.current
-      if (idleFor > IDLE_RETURN_MS && !idleReturnedRef.current) {
+
+      if (idleFor <= IDLE_RETURN_MS) return
+
+      if (!idleReturnedRef.current) {
         idleReturnedRef.current = true
         globeRef.current.pointOfView(DEFAULT_VIEW, 1500)
-        const controls = globeRef.current.controls()
         if (controls) controls.autoRotate = true
+        tourStateRef.current = { phase: 'overview', phaseStartedAt: Date.now(), tourIndex: 0 }
+        return
+      }
+
+      const state = tourStateRef.current
+      const elapsed = Date.now() - state.phaseStartedAt
+      const tourTargets = countryPointsRef.current
+
+      if (state.phase === 'overview') {
+        if (elapsed > OVERVIEW_HOLD_MS && tourTargets.length > 0) {
+          if (controls) controls.autoRotate = false
+          const target = tourTargets[0]
+          globeRef.current.pointOfView({ lat: target.lat, lng: target.lng, altitude: 1.4 }, 1200)
+          tourStateRef.current = { phase: 'touring', phaseStartedAt: Date.now(), tourIndex: 0 }
+        }
+      } else if (state.phase === 'touring') {
+        if (elapsed > TOUR_HOLD_MS) {
+          const nextIndex = state.tourIndex + 1
+          if (nextIndex >= tourTargets.length) {
+            if (controls) controls.autoRotate = true
+            globeRef.current.pointOfView(DEFAULT_VIEW, 1500)
+            tourStateRef.current = { phase: 'overview', phaseStartedAt: Date.now(), tourIndex: 0 }
+          } else {
+            const target = tourTargets[nextIndex]
+            globeRef.current.pointOfView({ lat: target.lat, lng: target.lng, altitude: 1.4 }, 1200)
+            tourStateRef.current = { phase: 'touring', phaseStartedAt: Date.now(), tourIndex: nextIndex }
+          }
+        }
       }
     }, 2000)
     return () => clearInterval(id)
@@ -95,6 +131,10 @@ export default function Globe({
 
   const countryPoints = useMemo(() => aggregateByCountry(points), [points])
   const newCountryPoints = countryPoints.filter(isNew)
+
+  useEffect(() => {
+    countryPointsRef.current = countryPoints
+  }, [countryPoints])
 
   useEffect(() => {
     if (!globeRef.current || !focusRequest) return

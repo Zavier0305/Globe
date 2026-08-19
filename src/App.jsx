@@ -6,17 +6,20 @@ import CountryGallery from './components/CountryGallery.jsx'
 import StatsBar from './components/StatsBar.jsx'
 import ThumbnailStrip from './components/ThumbnailStrip.jsx'
 import QRCorner from './components/QRCorner.jsx'
+import SoundToggle from './components/SoundToggle.jsx'
+import FlagBoard from './components/FlagBoard.jsx'
 import usePoses from './lib/usePoses.js'
 import { getDeleteToken, removeDeleteToken } from './lib/localDeleteTokens.js'
 import { deleteOwnPose } from './lib/deletePose.js'
 
-const UNDO_TOAST_MS = 8000
+const UNDO_TOAST_MS = 10000
 
 export default function App() {
   const { points, loading, errorMsg, addOwnPose, removePose } = usePoses()
   const [showCapture, setShowCapture] = useState(false)
   const [selectedPose, setSelectedPose] = useState(null)
   const [selectedCountryPoint, setSelectedCountryPoint] = useState(null)
+  const [showFlagBoard, setShowFlagBoard] = useState(false)
   const [focusRequest, setFocusRequest] = useState(null)
   const [undoToast, setUndoToast] = useState(null)
 
@@ -35,9 +38,29 @@ export default function App() {
     setSelectedPose(pose)
   }
 
+  function handleFlagSelect(country) {
+    const posesForCountry = points.filter((p) => p.country_code === country.code)
+    if (posesForCountry.length === 0) return
+    setShowFlagBoard(false)
+    setFocusRequest({ lat: country.lat, lng: country.lng, nonce: Date.now() })
+    if (posesForCountry.length === 1) {
+      setSelectedPose(posesForCountry[0])
+    } else {
+      setSelectedCountryPoint({
+        country_code: country.code,
+        country_name: posesForCountry[0].country_name,
+        lat: country.lat,
+        lng: country.lng,
+        poses: posesForCountry,
+      })
+    }
+  }
+
   function handlePosted(newPose) {
+    const isNewCountry = !points.some((p) => p.country_code === newPose.country_code)
+    const rank = points.length + 1
     addOwnPose(newPose)
-    setUndoToast(newPose)
+    setUndoToast({ ...newPose, rank, isNewCountry })
     setTimeout(() => {
       setUndoToast((current) => (current?.id === newPose.id ? null : current))
     }, UNDO_TOAST_MS)
@@ -58,6 +81,23 @@ export default function App() {
     setUndoToast(null)
   }
 
+  async function handleShare() {
+    if (!undoToast) return
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: '世界のポーズ地球儀',
+          text: `${undoToast.country_name}から参加しました!`,
+          url: window.location.origin,
+        })
+      } catch {
+        // ユーザーがシェアをキャンセルした場合などは何もしない
+      }
+    } else {
+      window.open(undoToast.image_url, '_blank', 'noopener,noreferrer')
+    }
+  }
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-surface">
       <Globe
@@ -74,23 +114,48 @@ export default function App() {
         </h1>
       </div>
 
-      <StatsBar postCount={points.length} countryCount={countryCount} />
+      <StatsBar
+        postCount={points.length}
+        countryCount={countryCount}
+        onOpenFlags={() => setShowFlagBoard(true)}
+      />
 
+      <SoundToggle />
       <QRCorner />
 
       <ThumbnailStrip points={points} onSelect={handleThumbnailSelect} />
 
       {undoToast && (
         <div className="pointer-events-none absolute inset-x-0 bottom-40 flex justify-center px-4">
-          <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-line bg-white px-4 py-2 text-sm text-ink shadow-lg">
-            <span>投稿しました!</span>
-            <button
-              type="button"
-              onClick={handleUndoFromToast}
-              className="font-bold text-accent underline"
-            >
-              取り消す
-            </button>
+          <div className="pointer-events-auto flex flex-col gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-sm text-ink shadow-lg">
+            <span className="font-semibold">
+              投稿しました!あなたは{undoToast.rank}人目の参加者です
+              {undoToast.isNewCountry && (
+                <span className="ml-1 text-accent">
+                  🎉 {undoToast.country_name}は新登場の国です!
+                </span>
+              )}
+            </span>
+            <div className="flex gap-3 text-xs">
+              <button type="button" onClick={handleShare} className="font-bold text-accent underline">
+                シェアする
+              </button>
+              <a
+                href={undoToast.image_url}
+                target="_blank"
+                rel="noreferrer"
+                className="font-bold text-accent underline"
+              >
+                写真を保存
+              </a>
+              <button
+                type="button"
+                onClick={handleUndoFromToast}
+                className="font-bold text-inkmuted underline"
+              >
+                取り消す
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -112,6 +177,14 @@ export default function App() {
         <CaptureModal
           onClose={() => setShowCapture(false)}
           onPosted={handlePosted}
+        />
+      )}
+
+      {showFlagBoard && (
+        <FlagBoard
+          points={points}
+          onClose={() => setShowFlagBoard(false)}
+          onSelectCountry={handleFlagSelect}
         />
       )}
 

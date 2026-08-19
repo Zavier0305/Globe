@@ -1,5 +1,7 @@
 // 外部音声ファイルに頼らず、Web Audio APIで短い効果音を都度合成する。
 // 自動再生ポリシーやAudioContext未対応環境でも例外にならないようtry/catchで無害化する。
+import { isSoundEnabled } from './soundPref'
+
 let ctx = null
 
 function getContext() {
@@ -27,6 +29,7 @@ function tone(freq, startTime, duration, gainValue = 0.15) {
 }
 
 export function playPostSuccessSound() {
+  if (!isSoundEnabled()) return
   try {
     const audioCtx = getContext()
     if (!audioCtx) return
@@ -39,6 +42,7 @@ export function playPostSuccessSound() {
 }
 
 export function playNewPinSound() {
+  if (!isSoundEnabled()) return
   try {
     const audioCtx = getContext()
     if (!audioCtx) return
