@@ -58,3 +58,28 @@ export const COUNTRIES = [
 export function findCountry(code) {
   return COUNTRIES.find((c) => c.code === code)
 }
+
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371
+  const toRad = (deg) => (deg * Math.PI) / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLng = toRad(lng2 - lng1)
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(a))
+}
+
+// 端末の緯度経度から、対応表の中で最も近い国を推定する(簡易ジオコーディング代わり)
+export function findNearestCountry(lat, lng) {
+  let nearest = null
+  let minDist = Infinity
+  for (const c of COUNTRIES) {
+    const d = haversineDistance(lat, lng, c.lat, c.lng)
+    if (d < minDist) {
+      minDist = d
+      nearest = c
+    }
+  }
+  return nearest
+}

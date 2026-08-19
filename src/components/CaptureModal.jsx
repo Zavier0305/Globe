@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { supabase, POSES_TABLE, POSE_IMAGES_BUCKET } from '../lib/supabaseClient'
-import { COUNTRIES } from '../lib/countries'
+import { supabase, POSE_IMAGES_BUCKET } from '../lib/supabaseClient'
+import { COUNTRIES, findNearestCountry } from '../lib/countries'
+import { saveDeleteToken } from '../lib/localDeleteTokens'
+import { playPostSuccessSound } from '../lib/sound'
+
+const MESSAGE_MAX_LENGTH = 60
 
 export default function CaptureModal({ onClose, onPosted }) {
   const [file, setFile] = useState(null)
@@ -9,8 +13,10 @@ export default function CaptureModal({ onClose, onPosted }) {
   const [search, setSearch] = useState('')
   const [selectedCountry, setSelectedCountry] = useState(null)
   const [showList, setShowList] = useState(false)
+  const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState(null)
+  const [geoHint, setGeoHint] = useState(null)
   const fileInputRef = useRef(null)
   const countryFieldRef = useRef(null)
 
@@ -29,6 +35,28 @@ export default function CaptureModal({ onClose, onPosted }) {
       if (previewUrl) URL.revokeObjectURL(previewUrl)
     }
   }, [previewUrl])
+
+  // 位置情報が使えれば最寄りの国を自動選択する(任意・失敗しても無視)
+  useEffect(() => {
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const nearest = findNearestCountry(
+          pos.coords.latitude,
+          pos.coords.longitude
+        )
+        if (nearest) {
+          setSelectedCountry(nearest)
+          setSearch(`${nearest.name_ja} (${nearest.name_en})`)
+          setGeoHint(`現在地から${nearest.name_ja}を自動選択しました`)
+        }
+      },
+      () => {
+        // 拒否/失敗時は何もしない(手動選択にフォールバック)
+      },
+      { timeout: 5000, maximumAge: 10 * 60 * 1000 }
+    )
+  }, [])
 
   const filteredCountries = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -68,6 +96,7 @@ export default function CaptureModal({ onClose, onPosted }) {
     setSelectedCountry(c)
     setSearch(`${c.name_ja} (${c.name_en})`)
     setShowList(false)
+    setGeoHint(null)
   }
 
   async function handleSubmit() {
@@ -107,18 +136,36 @@ export default function CaptureModal({ onClose, onPosted }) {
         .getPublicUrl(path)
       const imageUrl = publicUrlData.publicUrl
 
-      const { error: insertError } = await supabase.from(POSES_TABLE).insert({
-        country_code: selectedCountry.code,
-        country_name: selectedCountry.name_ja,
-        image_url: imageUrl,
-      })
+      const { data: rpcData, error: insertError } = await supabase.rpc(
+        'create_pose',
+        {
+          p_country_code: selectedCountry.code,
+          p_country_name: selectedCountry.name_ja,
+          p_image_url: imageUrl,
+          p_message: message.trim() || null,
+        }
+      )
       if (insertError) {
         console.error(insertError)
         setErrorMsg('投稿の登録に失敗しました。もう一度お試しください。')
         return
       }
 
-      onPosted && onPosted()
+      const created = Array.isArray(rpcData) ? rpcData[0] : rpcData
+      if (created) {
+        saveDeleteToken(created.id, created.delete_token)
+      }
+
+      playPostSuccessSound()
+      onPosted &&
+        onPosted({
+          id: created?.id,
+          country_code: selectedCountry.code,
+          country_name: selectedCountry.name_ja,
+          image_url: imageUrl,
+          message: message.trim() || null,
+          created_at: created?.created_at || new Date().toISOString(),
+        })
       onClose()
     } catch (err) {
       console.error(err)
@@ -201,10 +248,12 @@ export default function CaptureModal({ onClose, onPosted }) {
               setSearch(e.target.value)
               setSelectedCountry(null)
               setShowList(true)
+              setGeoHint(null)
             }}
             placeholder="国名で検索(例: 日本, Japan, JP)"
             className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white placeholder:text-gray-500"
           />
+          {geoHint && <p className="mt-1 text-xs text-cyanbright">{geoHint}</p>}
           {showList && (
             <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-white/10 bg-[#0a1730] shadow-xl">
               {filteredCountries.length === 0 && (
@@ -223,6 +272,23 @@ export default function CaptureModal({ onClose, onPosted }) {
               ))}
             </ul>
           )}
+        </div>
+
+        <div className="mb-4">
+          <label className="mb-1 block text-sm text-gray-300">
+            ひとこと(任意)
+          </label>
+          <input
+            type="text"
+            value={message}
+            maxLength={MESSAGE_MAX_LENGTH}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="例: 初めての海外旅行です!"
+            className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white placeholder:text-gray-500"
+          />
+          <p className="mt-1 text-right text-xs text-gray-500">
+            {message.length}/{MESSAGE_MAX_LENGTH}
+          </p>
         </div>
 
         {errorMsg && <p className="mb-3 text-sm text-pinkbright">{errorMsg}</p>}

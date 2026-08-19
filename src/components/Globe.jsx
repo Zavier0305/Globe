@@ -1,85 +1,48 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import GlobeGL from 'react-globe.gl'
-import { supabase, POSES_TABLE } from '../lib/supabaseClient'
-import { findCountry } from '../lib/countries'
 
 const NEW_PIN_WINDOW_MS = 60 * 1000
+const DEFAULT_VIEW = { lat: 20, lng: 20, altitude: 2.2 }
+const IDLE_RETURN_MS = 20 * 1000
 
-function toPoint(pose) {
-  const country = findCountry(pose.country_code)
-  if (!country) return null
-  return {
-    id: pose.id,
-    lat: country.lat,
-    lng: country.lng,
-    country_name: pose.country_name || country.name_ja,
-    country_code: pose.country_code,
-    image_url: pose.image_url,
-    created_at: pose.created_at,
+function aggregateByCountry(points) {
+  const map = new Map()
+  for (const p of points) {
+    const existing = map.get(p.country_code)
+    if (existing) {
+      existing.poses.push(p)
+      if (p.created_at > existing.latest_created_at) {
+        existing.latest_created_at = p.created_at
+      }
+    } else {
+      map.set(p.country_code, {
+        country_code: p.country_code,
+        country_name: p.country_name,
+        lat: p.lat,
+        lng: p.lng,
+        poses: [p],
+        latest_created_at: p.created_at,
+      })
+    }
   }
+  return Array.from(map.values())
 }
 
-export default function Globe({ onPinClick }) {
+export default function Globe({
+  points,
+  loading,
+  errorMsg,
+  onCountryClick,
+  focusRequest,
+}) {
   const globeRef = useRef()
-  const [points, setPoints] = useState([])
   const [now, setNow] = useState(Date.now())
-  const [loading, setLoading] = useState(true)
-  const [errorMsg, setErrorMsg] = useState(null)
   const [size, setSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
   })
-
-  useEffect(() => {
-    let mounted = true
-    async function load() {
-      setLoading(true)
-      const { data, error } = await supabase
-        .from(POSES_TABLE)
-        .select('*')
-        .order('created_at', { ascending: true })
-      if (!mounted) return
-      if (error) {
-        console.error('posesの取得に失敗しました', error)
-        setErrorMsg('投稿の読み込みに失敗しました。通信環境を確認してください。')
-        setLoading(false)
-        return
-      }
-      setPoints(data.map(toPoint).filter(Boolean))
-      setErrorMsg(null)
-      setLoading(false)
-    }
-    load()
-    return () => {
-      mounted = false
-    }
-  }, [])
-
-  useEffect(() => {
-    const channel = supabase
-      .channel('poses-realtime')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: POSES_TABLE },
-        (payload) => {
-          const point = toPoint(payload.new)
-          if (!point) return
-          setPoints((prev) => {
-            if (prev.some((p) => p.id === point.id)) return prev
-            return [...prev, point]
-          })
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          setErrorMsg('リアルタイム更新に接続できませんでした。再読み込みしてください。')
-        }
-      })
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [])
+  const lastInteractionRef = useRef(Date.now())
+  const idleReturnedRef = useRef(true)
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000)
@@ -95,20 +58,56 @@ export default function Globe({ onPinClick }) {
 
   useEffect(() => {
     if (!globeRef.current) return
-    globeRef.current.pointOfView({ lat: 20, lng: 20, altitude: 2.2 }, 0)
+    globeRef.current.pointOfView(DEFAULT_VIEW, 0)
     const controls = globeRef.current.controls()
-    if (controls) {
-      controls.autoRotate = true
-      controls.autoRotateSpeed = 0.4
+    if (!controls) return
+    controls.autoRotate = true
+    controls.autoRotateSpeed = 0.4
+
+    const markInteraction = () => {
+      lastInteractionRef.current = Date.now()
+      idleReturnedRef.current = false
+      controls.autoRotate = false
     }
+    controls.addEventListener('start', markInteraction)
+    return () => controls.removeEventListener('start', markInteraction)
+  }, [])
+
+  // 一定時間操作がなければ自動回転と全体ビューに戻す(プロジェクター展示向け)
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!globeRef.current) return
+      const idleFor = Date.now() - lastInteractionRef.current
+      if (idleFor > IDLE_RETURN_MS && !idleReturnedRef.current) {
+        idleReturnedRef.current = true
+        globeRef.current.pointOfView(DEFAULT_VIEW, 1500)
+        const controls = globeRef.current.controls()
+        if (controls) controls.autoRotate = true
+      }
+    }, 2000)
+    return () => clearInterval(id)
   }, [])
 
   const isNew = useCallback(
-    (p) => now - new Date(p.created_at).getTime() < NEW_PIN_WINDOW_MS,
+    (p) => now - new Date(p.latest_created_at).getTime() < NEW_PIN_WINDOW_MS,
     [now]
   )
 
-  const newPoints = points.filter(isNew)
+  const countryPoints = useMemo(() => aggregateByCountry(points), [points])
+  const newCountryPoints = countryPoints.filter(isNew)
+
+  useEffect(() => {
+    if (!globeRef.current || !focusRequest) return
+    globeRef.current.pointOfView(
+      { lat: focusRequest.lat, lng: focusRequest.lng, altitude: 1.4 },
+      1200
+    )
+    lastInteractionRef.current = Date.now()
+    idleReturnedRef.current = false
+    const controls = globeRef.current.controls()
+    if (controls) controls.autoRotate = false
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest])
 
   return (
     <>
@@ -121,16 +120,18 @@ export default function Globe({ onPinClick }) {
         bumpImageUrl="/textures/earth-topology.png"
         atmosphereColor="#22e6ff"
         atmosphereAltitude={0.22}
-        pointsData={points}
+        pointsData={countryPoints}
         pointLat="lat"
         pointLng="lng"
         pointAltitude={(p) => (isNew(p) ? 0.14 : 0.03)}
-        pointRadius={(p) => (isNew(p) ? 0.7 : 0.4)}
+        pointRadius={(p) => Math.min(0.35 + p.poses.length * 0.08, 1.1)}
         pointColor={(p) => (isNew(p) ? '#ff2d78' : '#22e6ff')}
-        pointLabel={(p) => `<div style="color:#fff;font-weight:bold">${p.country_name}</div>`}
+        pointLabel={(p) =>
+          `<div style="color:#fff;font-weight:bold">${p.country_name}(${p.poses.length}件)</div>`
+        }
         pointsMerge={false}
-        onPointClick={(p) => onPinClick && onPinClick(p)}
-        ringsData={newPoints}
+        onPointClick={(p) => onCountryClick && onCountryClick(p)}
+        ringsData={newCountryPoints}
         ringLat="lat"
         ringLng="lng"
         ringColor={() => '#ff2d78'}
@@ -158,7 +159,7 @@ export default function Globe({ onPinClick }) {
       )}
 
       {errorMsg && (
-        <div className="pointer-events-none absolute inset-x-0 top-14 flex justify-center px-4">
+        <div className="pointer-events-none absolute inset-x-0 top-24 flex justify-center px-4">
           <p className="rounded-full bg-pinkbright/90 px-4 py-2 text-center text-xs font-semibold text-white shadow-lg">
             {errorMsg}
           </p>

@@ -1,9 +1,58 @@
 import { useState } from 'react'
+import { supabase } from '../lib/supabaseClient'
+import { getDeleteToken, removeDeleteToken } from '../lib/localDeleteTokens'
 
-export default function PinDetail({ pose, onClose }) {
+export default function PinDetail({ pose, onClose, onDeleted }) {
   const [imageFailed, setImageFailed] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [reporting, setReporting] = useState(false)
+  const [reported, setReported] = useState(false)
+  const [actionMsg, setActionMsg] = useState(null)
 
   if (!pose) return null
+
+  const canDelete = Boolean(getDeleteToken(pose.id))
+
+  async function handleDelete() {
+    const token = getDeleteToken(pose.id)
+    if (!token) return
+    const confirmed = window.confirm('この投稿を取り消しますか?元に戻せません。')
+    if (!confirmed) return
+
+    setDeleting(true)
+    try {
+      const { data, error } = await supabase.rpc('delete_own_pose', {
+        p_id: pose.id,
+        p_token: token,
+      })
+      if (error || !data) {
+        console.error(error)
+        setActionMsg('取り消しに失敗しました。もう一度お試しください。')
+        return
+      }
+      removeDeleteToken(pose.id)
+      onDeleted && onDeleted(pose.id)
+      onClose()
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  async function handleReport() {
+    setReporting(true)
+    try {
+      const { error } = await supabase.rpc('report_pose', { p_id: pose.id })
+      if (error) {
+        console.error(error)
+        setActionMsg('通報に失敗しました。')
+        return
+      }
+      setReported(true)
+      setActionMsg('通報しました。ご協力ありがとうございます。')
+    } finally {
+      setReporting(false)
+    }
+  }
 
   return (
     <div
@@ -36,9 +85,37 @@ export default function PinDetail({ pose, onClose }) {
         )}
         <div className="px-4 py-3">
           <p className="text-lg font-bold text-cyanbright">{pose.country_name}</p>
-          <p className="text-xs text-gray-400">
+          {pose.message && (
+            <p className="mt-1 text-sm text-white">{pose.message}</p>
+          )}
+          <p className="mt-1 text-xs text-gray-400">
             {new Date(pose.created_at).toLocaleString('ja-JP')}
           </p>
+
+          {actionMsg && (
+            <p className="mt-2 text-xs text-cyanbright">{actionMsg}</p>
+          )}
+
+          <div className="mt-3 flex gap-2">
+            {canDelete && (
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={handleDelete}
+                className="flex-1 rounded-lg bg-white/10 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {deleting ? '取り消し中...' : 'この投稿を取り消す'}
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={reporting || reported}
+              onClick={handleReport}
+              className="flex-1 rounded-lg bg-white/10 py-2 text-sm font-semibold text-gray-300 disabled:opacity-50"
+            >
+              {reported ? '通報済み' : reporting ? '通報中...' : '不適切と通報する'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
