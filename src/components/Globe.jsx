@@ -23,6 +23,8 @@ export default function Globe({ onPinClick }) {
   const globeRef = useRef()
   const [points, setPoints] = useState([])
   const [now, setNow] = useState(Date.now())
+  const [loading, setLoading] = useState(true)
+  const [errorMsg, setErrorMsg] = useState(null)
   const [size, setSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -31,16 +33,21 @@ export default function Globe({ onPinClick }) {
   useEffect(() => {
     let mounted = true
     async function load() {
+      setLoading(true)
       const { data, error } = await supabase
         .from(POSES_TABLE)
         .select('*')
         .order('created_at', { ascending: true })
+      if (!mounted) return
       if (error) {
         console.error('posesの取得に失敗しました', error)
+        setErrorMsg('投稿の読み込みに失敗しました。通信環境を確認してください。')
+        setLoading(false)
         return
       }
-      if (!mounted) return
       setPoints(data.map(toPoint).filter(Boolean))
+      setErrorMsg(null)
+      setLoading(false)
     }
     load()
     return () => {
@@ -63,7 +70,11 @@ export default function Globe({ onPinClick }) {
           })
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setErrorMsg('リアルタイム更新に接続できませんでした。再読み込みしてください。')
+        }
+      })
 
     return () => {
       supabase.removeChannel(channel)
@@ -100,31 +111,59 @@ export default function Globe({ onPinClick }) {
   const newPoints = points.filter(isNew)
 
   return (
-    <GlobeGL
-      ref={globeRef}
-      width={size.width}
-      height={size.height}
-      backgroundColor="#040b1a"
-      globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
-      bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
-      atmosphereColor="#22e6ff"
-      atmosphereAltitude={0.22}
-      pointsData={points}
-      pointLat="lat"
-      pointLng="lng"
-      pointAltitude={(p) => (isNew(p) ? 0.14 : 0.03)}
-      pointRadius={(p) => (isNew(p) ? 0.7 : 0.4)}
-      pointColor={(p) => (isNew(p) ? '#ff2d78' : '#22e6ff')}
-      pointLabel={(p) => `<div style="color:#fff;font-weight:bold">${p.country_name}</div>`}
-      pointsMerge={false}
-      onPointClick={(p) => onPinClick && onPinClick(p)}
-      ringsData={newPoints}
-      ringLat="lat"
-      ringLng="lng"
-      ringColor={() => '#ff2d78'}
-      ringMaxRadius={4}
-      ringPropagationSpeed={2.5}
-      ringRepeatPeriod={800}
-    />
+    <>
+      <GlobeGL
+        ref={globeRef}
+        width={size.width}
+        height={size.height}
+        backgroundColor="#040b1a"
+        globeImageUrl="/textures/earth-night.jpg"
+        bumpImageUrl="/textures/earth-topology.png"
+        atmosphereColor="#22e6ff"
+        atmosphereAltitude={0.22}
+        pointsData={points}
+        pointLat="lat"
+        pointLng="lng"
+        pointAltitude={(p) => (isNew(p) ? 0.14 : 0.03)}
+        pointRadius={(p) => (isNew(p) ? 0.7 : 0.4)}
+        pointColor={(p) => (isNew(p) ? '#ff2d78' : '#22e6ff')}
+        pointLabel={(p) => `<div style="color:#fff;font-weight:bold">${p.country_name}</div>`}
+        pointsMerge={false}
+        onPointClick={(p) => onPinClick && onPinClick(p)}
+        ringsData={newPoints}
+        ringLat="lat"
+        ringLng="lng"
+        ringColor={() => '#ff2d78'}
+        ringMaxRadius={4}
+        ringPropagationSpeed={2.5}
+        ringRepeatPeriod={800}
+      />
+
+      {loading && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="rounded-full bg-black/50 px-4 py-2 text-sm text-cyanbright backdrop-blur">
+            読み込み中...
+          </div>
+        </div>
+      )}
+
+      {!loading && !errorMsg && points.length === 0 && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-8">
+          <p className="rounded-xl bg-black/50 px-4 py-3 text-center text-sm text-gray-300 backdrop-blur">
+            まだ投稿がありません。
+            <br />
+            下のボタンから最初のポーズを投稿しよう!
+          </p>
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="pointer-events-none absolute inset-x-0 top-14 flex justify-center px-4">
+          <p className="rounded-full bg-pinkbright/90 px-4 py-2 text-center text-xs font-semibold text-white shadow-lg">
+            {errorMsg}
+          </p>
+        </div>
+      )}
+    </>
   )
 }

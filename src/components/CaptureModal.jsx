@@ -47,6 +47,12 @@ export default function CaptureModal({ onClose, onPosted }) {
       setCameraError(true)
       return
     }
+    const MAX_SIZE_BYTES = 15 * 1024 * 1024
+    if (f.size > MAX_SIZE_BYTES) {
+      setErrorMsg('画像サイズが大きすぎます(15MBまで)。別の写真を選んでください。')
+      return
+    }
+    setErrorMsg(null)
     setCameraError(false)
     setFile(f)
     setPreviewUrl(URL.createObjectURL(f))
@@ -90,7 +96,11 @@ export default function CaptureModal({ onClose, onPosted }) {
       const { error: uploadError } = await supabase.storage
         .from(POSE_IMAGES_BUCKET)
         .upload(path, file, { cacheControl: '3600', upsert: false })
-      if (uploadError) throw uploadError
+      if (uploadError) {
+        console.error(uploadError)
+        setErrorMsg('画像のアップロードに失敗しました。通信環境を確認して再度お試しください。')
+        return
+      }
 
       const { data: publicUrlData } = supabase.storage
         .from(POSE_IMAGES_BUCKET)
@@ -102,7 +112,11 @@ export default function CaptureModal({ onClose, onPosted }) {
         country_name: selectedCountry.name_ja,
         image_url: imageUrl,
       })
-      if (insertError) throw insertError
+      if (insertError) {
+        console.error(insertError)
+        setErrorMsg('投稿の登録に失敗しました。もう一度お試しください。')
+        return
+      }
 
       onPosted && onPosted()
       onClose()

@@ -1,4 +1,8 @@
+import { useState } from 'react'
+
 export default function PinDetail({ pose, onClose }) {
+  const [imageFailed, setImageFailed] = useState(false)
+
   if (!pose) return null
 
   return (
@@ -18,11 +22,18 @@ export default function PinDetail({ pose, onClose }) {
         >
           ×
         </button>
-        <img
-          src={pose.image_url}
-          alt={pose.country_name}
-          className="max-h-[70vh] w-full object-contain bg-black"
-        />
+        {imageFailed ? (
+          <div className="flex h-64 w-full items-center justify-center bg-black text-sm text-gray-400">
+            画像を読み込めませんでした
+          </div>
+        ) : (
+          <img
+            src={pose.image_url}
+            alt={pose.country_name}
+            className="max-h-[70vh] w-full object-contain bg-black"
+            onError={() => setImageFailed(true)}
+          />
+        )}
         <div className="px-4 py-3">
           <p className="text-lg font-bold text-cyanbright">{pose.country_name}</p>
           <p className="text-xs text-gray-400">
