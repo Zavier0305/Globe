@@ -16,6 +16,7 @@ export default function CaptureModal({ onClose, onPosted }) {
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState(null)
   const [geoHint, setGeoHint] = useState(null)
+  const [agreed, setAgreed] = useState(false)
   const fileInputRef = useRef(null)
   const countryFieldRef = useRef(null)
 
@@ -106,6 +107,10 @@ export default function CaptureModal({ onClose, onPosted }) {
     }
     if (!selectedCountry) {
       setErrorMsg('国を選択してください。')
+      return
+    }
+    if (!agreed) {
+      setErrorMsg('利用規約・プライバシーポリシーへの同意が必要です。')
       return
     }
 
@@ -278,11 +283,31 @@ export default function CaptureModal({ onClose, onPosted }) {
           )}
         </div>
 
+        <label className="mb-3 flex items-start gap-2 text-xs text-gray-300">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0"
+          />
+          <span>
+            <a
+              href="/?terms=1"
+              target="_blank"
+              rel="noreferrer"
+              className="text-cyanbright underline"
+            >
+              利用規約・プライバシーポリシー
+            </a>
+            に同意します(顔写真が世界中に公開されます)
+          </span>
+        </label>
+
         {errorMsg && <p className="mb-3 text-sm text-pinkbright">{errorMsg}</p>}
 
         <button
           type="button"
-          disabled={submitting}
+          disabled={submitting || !agreed}
           onClick={handleSubmit}
           className="w-full rounded-xl bg-pinkbright py-3 text-lg font-bold text-white disabled:opacity-50"
         >

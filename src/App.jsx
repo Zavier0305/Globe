@@ -95,7 +95,7 @@ export default function App() {
         </div>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-6 pt-10 bg-gradient-to-t from-black/80 to-transparent">
+      <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-2 px-4 pb-3 pt-10 bg-gradient-to-t from-black/80 to-transparent">
         <button
           type="button"
           onClick={() => setShowCapture(true)}
@@ -103,6 +103,9 @@ export default function App() {
         >
           📸 ポーズを投稿する
         </button>
+        <a href="/?terms=1" target="_blank" rel="noreferrer" className="text-xs text-gray-400 underline">
+          利用規約・プライバシーポリシー
+        </a>
       </div>
 
       {showCapture && (
