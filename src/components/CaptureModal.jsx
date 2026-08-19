@@ -3,6 +3,7 @@ import { supabase, POSE_IMAGES_BUCKET } from '../lib/supabaseClient'
 import { COUNTRIES, findNearestCountry } from '../lib/countries'
 import { saveDeleteToken } from '../lib/localDeleteTokens'
 import { playPostSuccessSound } from '../lib/sound'
+import { getDeviceId } from '../lib/deviceId'
 
 const MESSAGE_MAX_LENGTH = 60
 
@@ -143,11 +144,16 @@ export default function CaptureModal({ onClose, onPosted }) {
           p_country_name: selectedCountry.name_ja,
           p_image_url: imageUrl,
           p_message: message.trim() || null,
+          p_device_id: getDeviceId(),
         }
       )
       if (insertError) {
         console.error(insertError)
-        setErrorMsg('投稿の登録に失敗しました。もう一度お試しください。')
+        if (insertError.message?.includes('rate_limited')) {
+          setErrorMsg('投稿が多すぎます。10分ほど時間をおいてから再度お試しください。')
+        } else {
+          setErrorMsg('投稿の登録に失敗しました。もう一度お試しください。')
+        }
         return
       }
 

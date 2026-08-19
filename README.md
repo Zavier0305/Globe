@@ -106,7 +106,61 @@ $$;
 grant execute on function public.report_pose(uuid) to anon, authenticated;
 ```
 
-不適切な投稿の削除は、Supabaseダッシュボードの Table Editor から `poses` 行を直接削除して運用してください(専用の承認画面は今回のスコープ外)。`pose_reports` テーブルを確認すると、通報が入った投稿を優先的にレビューできます。
+投稿レート制限(端末ごとに直近10分で5件まで)とモデレーション画面用に以下も適用済みです。
+
+```sql
+create table if not exists public.pose_device_ids (
+  pose_id uuid primary key references public.poses(id) on delete cascade,
+  device_id uuid not null,
+  created_at timestamptz not null default now()
+);
+alter table public.pose_device_ids enable row level security;
+
+create table if not exists public.app_settings (
+  key text primary key,
+  value text not null
+);
+alter table public.app_settings enable row level security;
+-- 管理者パスワードのハッシュを1件だけ保存(平文はDBに残さない)
+insert into public.app_settings (key, value)
+values ('admin_password_hash', extensions.crypt('管理者パスワード', extensions.gen_salt('bf')))
+on conflict (key) do update set value = excluded.value;
+
+-- create_poseはp_device_idを受け取りレート制限を行うよう更新済み(本文はマイグレーション履歴参照)
+
+create or replace function public.admin_verify(p_password text)
+returns boolean language plpgsql security definer set search_path = public as $$
+declare v_hash text;
+begin
+  select value into v_hash from public.app_settings where key = 'admin_password_hash';
+  if v_hash is null then return false; end if;
+  return v_hash = extensions.crypt(p_password, v_hash);
+end; $$;
+grant execute on function public.admin_verify(text) to anon, authenticated;
+
+create or replace function public.admin_list_reported_poses(p_password text)
+returns table (pose_id uuid, country_name text, image_url text, message text, created_at timestamptz, report_count bigint)
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.admin_verify(p_password) then raise exception 'unauthorized' using errcode = '28000'; end if;
+  return query
+    select p.id, p.country_name, p.image_url, p.message, p.created_at, count(r.id)
+    from public.poses p join public.pose_reports r on r.pose_id = p.id
+    group by p.id order by count(r.id) desc, p.created_at desc;
+end; $$;
+grant execute on function public.admin_list_reported_poses(text) to anon, authenticated;
+
+create or replace function public.admin_delete_pose(p_password text, p_id uuid)
+returns boolean language plpgsql security definer set search_path = public as $$
+begin
+  if not public.admin_verify(p_password) then raise exception 'unauthorized' using errcode = '28000'; end if;
+  delete from public.poses where id = p_id;
+  return true;
+end; $$;
+grant execute on function public.admin_delete_pose(text, uuid) to anon, authenticated;
+```
+
+不適切な投稿の削除は、`<デプロイURL>/?admin=1` の管理者パネルから、通報された投稿を確認しつつ削除できます(パスワードはSupabaseの `app_settings` テーブルにハッシュのみ保存。実際の値はチャットで受け取ってください)。Supabaseダッシュボードの Table Editor から `poses` 行を直接削除することも引き続き可能です。
 
 ## 2. 環境変数
 
@@ -143,9 +197,10 @@ src/
     countries.js          主要国の{code, name_ja, name_en, lat, lng}対応表 + 最寄り国推定
     usePoses.js            poses取得・Realtime購読・楽観的追加をまとめたフック
     localDeleteTokens.js  自分の投稿を消すためのトークンをlocalStorageに保持(30分間有効)
+    deviceId.js            投稿レート制限用の端末ID(localStorageに乱数を保持)
     sound.js               投稿成功/新着ピン時の効果音(Web Audio APIで都度合成)
   App.jsx
-  main.jsx
+  main.jsx                 URLに ?admin=1 があればAdminPanelを表示
 public/
   textures/   react-globe.gl用の地球テクスチャ(外部CDN非依存で同梱)
   icons/      PWAアイコン
@@ -163,6 +218,8 @@ public/
 - **位置情報からの国自動推定**: 端末位置情報が使えれば最寄りの国を自動選択(拒否時は手動選択にフォールバック)
 - **効果音**: 投稿成功時・新着ピン出現時に短いサウンドを再生(Web Audio APIで合成、外部音源なし)
 - **アイドル時の自動回転復帰**: 20秒操作がなければ自動回転を再開し、全体ビューへ戻る(プロジェクター展示向け)
+- **投稿レート制限**: 同一端末から直近10分で5件を超える投稿はサーバー側(DB関数)で拒否
+- **管理者モデレーション画面**: `/?admin=1` にパスワードでログインし、通報された投稿だけを一覧・削除できる
 - **QRコード表示**: 右上に常時表示、タップで拡大。スマホからすぐアクセスできる
 - **PWA対応**: マニフェスト+アイコンで「ホーム画面に追加」が可能
 
