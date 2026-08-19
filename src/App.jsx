@@ -7,8 +7,8 @@ import StatsBar from './components/StatsBar.jsx'
 import ThumbnailStrip from './components/ThumbnailStrip.jsx'
 import QRCorner from './components/QRCorner.jsx'
 import usePoses from './lib/usePoses.js'
-import { supabase } from './lib/supabaseClient.js'
 import { getDeleteToken, removeDeleteToken } from './lib/localDeleteTokens.js'
+import { deleteOwnPose } from './lib/deletePose.js'
 
 const UNDO_TOAST_MS = 8000
 
@@ -50,11 +50,8 @@ export default function App() {
       setUndoToast(null)
       return
     }
-    const { data } = await supabase.rpc('delete_own_pose', {
-      p_id: undoToast.id,
-      p_token: token,
-    })
-    if (data) {
+    const { success } = await deleteOwnPose(undoToast.id, token)
+    if (success) {
       removeDeleteToken(undoToast.id)
       removePose(undoToast.id)
     }

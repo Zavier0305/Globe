@@ -4,6 +4,7 @@ import { COUNTRIES, findNearestCountry } from '../lib/countries'
 import { saveDeleteToken } from '../lib/localDeleteTokens'
 import { playPostSuccessSound } from '../lib/sound'
 import { getDeviceId } from '../lib/deviceId'
+import { resizeImageFile } from '../lib/resizeImage'
 
 const MESSAGE_MAX_LENGTH = 60
 
@@ -118,14 +119,15 @@ export default function CaptureModal({ onClose, onPosted }) {
 
     setSubmitting(true)
     try {
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+      const resized = await resizeImageFile(file)
+      const ext = (resized.name.split('.').pop() || 'jpg').toLowerCase()
       const path = `${selectedCountry.code}/${Date.now()}-${Math.random()
         .toString(36)
         .slice(2)}.${ext}`
 
       const { error: uploadError } = await supabase.storage
         .from(POSE_IMAGES_BUCKET)
-        .upload(path, file, { cacheControl: '3600', upsert: false })
+        .upload(path, resized, { cacheControl: '3600', upsert: false })
       if (uploadError) {
         console.error(uploadError)
         setErrorMsg('画像のアップロードに失敗しました。通信環境を確認して再度お試しください。')
@@ -145,6 +147,7 @@ export default function CaptureModal({ onClose, onPosted }) {
           p_image_url: imageUrl,
           p_message: message.trim() || null,
           p_device_id: getDeviceId(),
+          p_storage_path: path,
         }
       )
       if (insertError) {

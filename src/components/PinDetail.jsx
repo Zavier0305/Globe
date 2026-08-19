@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { getDeleteToken, removeDeleteToken } from '../lib/localDeleteTokens'
+import { deleteOwnPose } from '../lib/deletePose'
 
 export default function PinDetail({ pose, onClose, onDeleted }) {
   const [imageFailed, setImageFailed] = useState(false)
@@ -21,12 +22,8 @@ export default function PinDetail({ pose, onClose, onDeleted }) {
 
     setDeleting(true)
     try {
-      const { data, error } = await supabase.rpc('delete_own_pose', {
-        p_id: pose.id,
-        p_token: token,
-      })
-      if (error || !data) {
-        console.error(error)
+      const { success } = await deleteOwnPose(pose.id, token)
+      if (!success) {
         setActionMsg('取り消しに失敗しました。もう一度お試しください。')
         return
       }

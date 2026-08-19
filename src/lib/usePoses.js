@@ -3,6 +3,9 @@ import { supabase, POSES_TABLE } from './supabaseClient'
 import { findCountry } from './countries'
 import { playNewPinSound } from './sound'
 
+// この件数以上の通報が入った投稿は、管理者が対応するまで地球儀から一時的に隠す
+export const REPORT_HIDE_THRESHOLD = 3
+
 function toPoint(pose) {
   const country = findCountry(pose.country_code)
   if (!country) return null
@@ -15,7 +18,12 @@ function toPoint(pose) {
     image_url: pose.image_url,
     message: pose.message || null,
     created_at: pose.created_at,
+    report_count: pose.report_count || 0,
   }
+}
+
+function isVisible(point) {
+  return point.report_count < REPORT_HIDE_THRESHOLD
 }
 
 export default function usePoses() {
@@ -39,7 +47,7 @@ export default function usePoses() {
         setLoading(false)
         return
       }
-      setPoints(data.map(toPoint).filter(Boolean))
+      setPoints(data.map(toPoint).filter(Boolean).filter(isVisible))
       setErrorMsg(null)
       setLoading(false)
     }
@@ -72,6 +80,20 @@ export default function usePoses() {
         { event: 'DELETE', schema: 'public', table: POSES_TABLE },
         (payload) => {
           setPoints((prev) => prev.filter((p) => p.id !== payload.old.id))
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: POSES_TABLE },
+        (payload) => {
+          const point = toPoint(payload.new)
+          if (!point) return
+          setPoints((prev) => {
+            if (!isVisible(point)) {
+              return prev.filter((p) => p.id !== point.id)
+            }
+            return prev.map((p) => (p.id === point.id ? point : p))
+          })
         }
       )
       .subscribe((status) => {
