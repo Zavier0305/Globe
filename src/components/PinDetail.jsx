@@ -82,9 +82,6 @@ export default function PinDetail({ pose, onClose, onDeleted }) {
         )}
         <div className="px-4 py-3">
           <p className="text-lg font-bold text-cyanbright">{pose.country_name}</p>
-          {pose.message && (
-            <p className="mt-1 text-sm text-white">{pose.message}</p>
-          )}
           <p className="mt-1 text-xs text-gray-400">
             {new Date(pose.created_at).toLocaleString('ja-JP')}
           </p>

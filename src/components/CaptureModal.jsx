@@ -6,8 +6,6 @@ import { playPostSuccessSound } from '../lib/sound'
 import { getDeviceId } from '../lib/deviceId'
 import { resizeImageFile } from '../lib/resizeImage'
 
-const MESSAGE_MAX_LENGTH = 60
-
 export default function CaptureModal({ onClose, onPosted }) {
   const [file, setFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
@@ -15,7 +13,6 @@ export default function CaptureModal({ onClose, onPosted }) {
   const [search, setSearch] = useState('')
   const [selectedCountry, setSelectedCountry] = useState(null)
   const [showList, setShowList] = useState(false)
-  const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState(null)
   const [geoHint, setGeoHint] = useState(null)
@@ -145,7 +142,6 @@ export default function CaptureModal({ onClose, onPosted }) {
           p_country_code: selectedCountry.code,
           p_country_name: selectedCountry.name_ja,
           p_image_url: imageUrl,
-          p_message: message.trim() || null,
           p_device_id: getDeviceId(),
           p_storage_path: path,
         }
@@ -172,7 +168,6 @@ export default function CaptureModal({ onClose, onPosted }) {
           country_code: selectedCountry.code,
           country_name: selectedCountry.name_ja,
           image_url: imageUrl,
-          message: message.trim() || null,
           created_at: created?.created_at || new Date().toISOString(),
         })
       onClose()
@@ -281,23 +276,6 @@ export default function CaptureModal({ onClose, onPosted }) {
               ))}
             </ul>
           )}
-        </div>
-
-        <div className="mb-4">
-          <label className="mb-1 block text-sm text-gray-300">
-            ひとこと(任意)
-          </label>
-          <input
-            type="text"
-            value={message}
-            maxLength={MESSAGE_MAX_LENGTH}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="例: 初めての海外旅行です!"
-            className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white placeholder:text-gray-500"
-          />
-          <p className="mt-1 text-right text-xs text-gray-500">
-            {message.length}/{MESSAGE_MAX_LENGTH}
-          </p>
         </div>
 
         {errorMsg && <p className="mb-3 text-sm text-pinkbright">{errorMsg}</p>}

@@ -160,7 +160,6 @@ export default function AdminPanel() {
                 />
                 <div className="flex-1">
                   <p className="font-bold text-cyanbright">{p.country_name}</p>
-                  {p.message && <p className="text-sm text-white">{p.message}</p>}
                   <p className="text-xs text-gray-400">
                     {new Date(p.created_at).toLocaleString('ja-JP')}
                   </p>
