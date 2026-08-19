@@ -13,7 +13,7 @@ export default function ThumbnailStrip({ points, onSelect }) {
             key={pose.id}
             type="button"
             onClick={() => onSelect(pose)}
-            className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-white/20 bg-black/40 shadow-lg"
+            className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-line bg-surfacemuted shadow-md"
             title={pose.country_name}
           >
             <img

@@ -53,41 +53,41 @@ export default function PinDetail({ pose, onClose, onDeleted }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={onClose}
     >
       <div
-        className="relative max-h-full w-full max-w-md overflow-hidden rounded-2xl bg-deepnavy shadow-2xl"
+        className="relative max-h-full w-full max-w-md overflow-hidden rounded-2xl bg-surface shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-xl text-white"
+          className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-xl text-white"
           aria-label="閉じる"
         >
           ×
         </button>
         {imageFailed ? (
-          <div className="flex h-64 w-full items-center justify-center bg-black text-sm text-gray-400">
+          <div className="flex h-64 w-full items-center justify-center bg-surfacemuted text-sm text-inkmuted">
             画像を読み込めませんでした
           </div>
         ) : (
           <img
             src={pose.image_url}
             alt={pose.country_name}
-            className="max-h-[70vh] w-full object-contain bg-black"
+            className="max-h-[70vh] w-full object-contain bg-surfacemuted"
             onError={() => setImageFailed(true)}
           />
         )}
         <div className="px-4 py-3">
-          <p className="text-lg font-bold text-cyanbright">{pose.country_name}</p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="text-lg font-bold text-ink">{pose.country_name}</p>
+          <p className="mt-1 text-xs text-inkmuted">
             {new Date(pose.created_at).toLocaleString('ja-JP')}
           </p>
 
           {actionMsg && (
-            <p className="mt-2 text-xs text-cyanbright">{actionMsg}</p>
+            <p className="mt-2 text-xs text-accent">{actionMsg}</p>
           )}
 
           <div className="mt-3 flex gap-2">
@@ -96,7 +96,7 @@ export default function PinDetail({ pose, onClose, onDeleted }) {
                 type="button"
                 disabled={deleting}
                 onClick={handleDelete}
-                className="flex-1 rounded-lg bg-white/10 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                className="flex-1 rounded-lg bg-surfacemuted py-2 text-sm font-semibold text-ink disabled:opacity-50"
               >
                 {deleting ? '取り消し中...' : 'この投稿を取り消す'}
               </button>
@@ -105,7 +105,7 @@ export default function PinDetail({ pose, onClose, onDeleted }) {
               type="button"
               disabled={reporting || reported}
               onClick={handleReport}
-              className="flex-1 rounded-lg bg-white/10 py-2 text-sm font-semibold text-gray-300 disabled:opacity-50"
+              className="flex-1 rounded-lg bg-surfacemuted py-2 text-sm font-semibold text-inkmuted disabled:opacity-50"
             >
               {reported ? '通報済み' : reporting ? '通報中...' : '不適切と通報する'}
             </button>

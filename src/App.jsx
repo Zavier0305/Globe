@@ -59,7 +59,7 @@ export default function App() {
   }
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-deepnavy">
+    <div className="relative h-screen w-screen overflow-hidden bg-surface">
       <Globe
         points={points}
         loading={loading}
@@ -69,7 +69,7 @@ export default function App() {
       />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center px-4 pt-4">
-        <h1 className="pointer-events-auto rounded-full bg-black/40 px-4 py-1 text-sm font-bold tracking-wide text-cyanbright backdrop-blur">
+        <h1 className="pointer-events-auto rounded-full border border-line bg-white/90 px-4 py-1 text-sm font-bold tracking-wide text-ink shadow-sm backdrop-blur">
           世界のポーズ地球儀
         </h1>
       </div>
@@ -82,12 +82,12 @@ export default function App() {
 
       {undoToast && (
         <div className="pointer-events-none absolute inset-x-0 bottom-40 flex justify-center px-4">
-          <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-white px-4 py-2 text-sm text-deepnavy shadow-lg">
+          <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-line bg-white px-4 py-2 text-sm text-ink shadow-lg">
             <span>投稿しました!</span>
             <button
               type="button"
               onClick={handleUndoFromToast}
-              className="font-bold text-pinkbright underline"
+              className="font-bold text-accent underline"
             >
               取り消す
             </button>
@@ -95,15 +95,15 @@ export default function App() {
         </div>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-2 px-4 pb-3 pt-10 bg-gradient-to-t from-black/80 to-transparent">
+      <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-2 px-4 pb-3 pt-10 bg-gradient-to-t from-white via-white/90 to-transparent">
         <button
           type="button"
           onClick={() => setShowCapture(true)}
-          className="w-full max-w-md rounded-full bg-pinkbright py-4 text-lg font-bold text-white shadow-lg shadow-pinkbright/40 active:scale-95"
+          className="w-full max-w-md rounded-full bg-accent py-4 text-lg font-bold text-white shadow-lg shadow-accent/30 active:scale-95"
         >
           📸 ポーズを投稿する
         </button>
-        <a href="/?terms=1" target="_blank" rel="noreferrer" className="text-xs text-gray-400 underline">
+        <a href="/?terms=1" target="_blank" rel="noreferrer" className="text-xs text-inkmuted underline">
           利用規約・プライバシーポリシー
         </a>
       </div>

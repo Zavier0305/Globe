@@ -115,26 +115,26 @@ export default function Globe({
         ref={globeRef}
         width={size.width}
         height={size.height}
-        backgroundColor="#040b1a"
-        globeImageUrl="/textures/earth-night.jpg"
+        backgroundColor="#ffffff"
+        globeImageUrl="/textures/earth-blue-marble.jpg"
         bumpImageUrl="/textures/earth-topology.png"
-        atmosphereColor="#22e6ff"
-        atmosphereAltitude={0.22}
+        atmosphereColor="#2563eb"
+        atmosphereAltitude={0.18}
         pointsData={countryPoints}
         pointLat="lat"
         pointLng="lng"
-        pointAltitude={(p) => (isNew(p) ? 0.14 : 0.03)}
+        pointAltitude={(p) => (isNew(p) ? 0.12 : 0.02)}
         pointRadius={(p) => Math.min(0.35 + p.poses.length * 0.08, 1.1)}
-        pointColor={(p) => (isNew(p) ? '#ff2d78' : '#22e6ff')}
+        pointColor={(p) => (isNew(p) ? '#1d4ed8' : '#2563eb')}
         pointLabel={(p) =>
-          `<div style="color:#fff;font-weight:bold">${p.country_name}(${p.poses.length}件)</div>`
+          `<div style="color:#111827;font-weight:bold;background:#fff;padding:2px 6px;border-radius:4px">${p.country_name}(${p.poses.length}件)</div>`
         }
         pointsMerge={false}
         onPointClick={(p) => onCountryClick && onCountryClick(p)}
         ringsData={newCountryPoints}
         ringLat="lat"
         ringLng="lng"
-        ringColor={() => '#ff2d78'}
+        ringColor={() => '#2563eb'}
         ringMaxRadius={4}
         ringPropagationSpeed={2.5}
         ringRepeatPeriod={800}
@@ -142,7 +142,7 @@ export default function Globe({
 
       {loading && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="rounded-full bg-black/50 px-4 py-2 text-sm text-cyanbright backdrop-blur">
+          <div className="rounded-full border border-line bg-white/90 px-4 py-2 text-sm text-accent shadow-sm backdrop-blur">
             読み込み中...
           </div>
         </div>
@@ -150,7 +150,7 @@ export default function Globe({
 
       {!loading && !errorMsg && points.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-8">
-          <p className="rounded-xl bg-black/50 px-4 py-3 text-center text-sm text-gray-300 backdrop-blur">
+          <p className="rounded-xl border border-line bg-white/90 px-4 py-3 text-center text-sm text-inkmuted shadow-sm backdrop-blur">
             まだ投稿がありません。
             <br />
             下のボタンから最初のポーズを投稿しよう!
@@ -160,7 +160,7 @@ export default function Globe({
 
       {errorMsg && (
         <div className="pointer-events-none absolute inset-x-0 top-24 flex justify-center px-4">
-          <p className="rounded-full bg-pinkbright/90 px-4 py-2 text-center text-xs font-semibold text-white shadow-lg">
+          <p className="rounded-full bg-accent px-4 py-2 text-center text-xs font-semibold text-white shadow-lg">
             {errorMsg}
           </p>
         </div>

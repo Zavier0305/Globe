@@ -22,7 +22,7 @@ export default function QRCorner() {
     <button
       type="button"
       onClick={() => setExpanded((v) => !v)}
-      className="fixed right-3 top-3 z-30 overflow-hidden rounded-lg border border-white/20 bg-white shadow-lg transition-all"
+      className="fixed right-3 top-3 z-30 overflow-hidden rounded-lg border border-line bg-white shadow-md transition-all"
       style={expanded ? { width: 200, height: 200 } : { width: 56, height: 56 }}
       aria-label="QRコードでこのページを開く"
     >

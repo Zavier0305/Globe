@@ -4,9 +4,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        deepnavy: '#040b1a',
-        pinkbright: '#ff2d78',
-        cyanbright: '#22e6ff',
+        surface: '#ffffff',
+        surfacemuted: '#f4f5f7',
+        ink: '#111827',
+        inkmuted: '#6b7280',
+        line: '#e5e7eb',
+        accent: '#2563eb',
+        accentdark: '#1d4ed8',
+        accentsoft: '#dbeafe',
       },
     },
   },

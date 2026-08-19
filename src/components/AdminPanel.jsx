@@ -71,30 +71,30 @@ export default function AdminPanel() {
 
   if (!authed) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-deepnavy px-4">
+      <div className="flex min-h-screen items-center justify-center bg-surface px-4">
         <form
-          className="w-full max-w-sm rounded-2xl bg-white/5 p-6"
+          className="w-full max-w-sm rounded-2xl border border-line bg-white p-6 shadow-sm"
           onSubmit={(e) => {
             e.preventDefault()
             loadReported(password)
           }}
         >
-          <h1 className="mb-4 text-lg font-bold text-white">管理者ログイン</h1>
+          <h1 className="mb-4 text-lg font-bold text-ink">管理者ログイン</h1>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="管理者パスワード"
-            className="mb-3 w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white"
+            className="mb-3 w-full rounded-lg border border-line bg-white px-3 py-2 text-ink"
             autoFocus
           />
           {loginError && (
-            <p className="mb-3 text-sm text-pinkbright">{loginError}</p>
+            <p className="mb-3 text-sm text-red-600">{loginError}</p>
           )}
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-pinkbright py-2 font-bold text-white disabled:opacity-50"
+            className="w-full rounded-lg bg-accent py-2 font-bold text-white disabled:opacity-50"
           >
             {loading ? '確認中...' : 'ログイン'}
           </button>
@@ -106,14 +106,14 @@ export default function AdminPanel() {
   const list = tab === 'reported' ? reportedPoses : allPoses
 
   return (
-    <div className="min-h-screen bg-deepnavy px-4 py-6">
+    <div className="min-h-screen bg-surface px-4 py-6">
       <div className="mx-auto max-w-2xl">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-lg font-bold text-white">管理者パネル</h1>
+          <h1 className="text-lg font-bold text-ink">管理者パネル</h1>
           <button
             type="button"
             onClick={() => (tab === 'reported' ? loadReported(password) : loadAllPoses())}
-            className="rounded-lg bg-white/10 px-3 py-1 text-sm text-white"
+            className="rounded-lg border border-line bg-white px-3 py-1 text-sm text-ink"
           >
             再読み込み
           </button>
@@ -124,7 +124,7 @@ export default function AdminPanel() {
             type="button"
             onClick={() => setTab('reported')}
             className={`rounded-full px-3 py-1 text-sm font-semibold ${
-              tab === 'reported' ? 'bg-pinkbright text-white' : 'bg-white/10 text-gray-300'
+              tab === 'reported' ? 'bg-accent text-white' : 'border border-line bg-white text-inkmuted'
             }`}
           >
             通報された投稿({reportedPoses.length})
@@ -133,17 +133,17 @@ export default function AdminPanel() {
             type="button"
             onClick={() => setTab('all')}
             className={`rounded-full px-3 py-1 text-sm font-semibold ${
-              tab === 'all' ? 'bg-pinkbright text-white' : 'bg-white/10 text-gray-300'
+              tab === 'all' ? 'bg-accent text-white' : 'border border-line bg-white text-inkmuted'
             }`}
           >
             全投稿(最新{ALL_POSES_LIMIT}件)
           </button>
         </div>
 
-        {actionMsg && <p className="mb-3 text-sm text-cyanbright">{actionMsg}</p>}
+        {actionMsg && <p className="mb-3 text-sm text-accent">{actionMsg}</p>}
 
         {list.length === 0 && (
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-inkmuted">
             {tab === 'reported' ? '通報された投稿はありません。' : '投稿がありません。'}
           </p>
         )}
@@ -152,24 +152,24 @@ export default function AdminPanel() {
           {list.map((p) => {
             const id = tab === 'reported' ? p.pose_id : p.id
             return (
-              <div key={id} className="flex gap-3 rounded-xl bg-white/5 p-3">
+              <div key={id} className="flex gap-3 rounded-xl border border-line bg-white p-3 shadow-sm">
                 <img
                   src={p.image_url}
                   alt={p.country_name}
                   className="h-20 w-20 shrink-0 rounded-lg object-cover"
                 />
                 <div className="flex-1">
-                  <p className="font-bold text-cyanbright">{p.country_name}</p>
-                  <p className="text-xs text-gray-400">
+                  <p className="font-bold text-ink">{p.country_name}</p>
+                  <p className="text-xs text-inkmuted">
                     {new Date(p.created_at).toLocaleString('ja-JP')}
                   </p>
                   {tab === 'reported' ? (
-                    <p className="text-xs font-semibold text-pinkbright">
+                    <p className="text-xs font-semibold text-red-600">
                       通報 {p.report_count}件
                     </p>
                   ) : (
                     p.report_count > 0 && (
-                      <p className="text-xs font-semibold text-pinkbright">
+                      <p className="text-xs font-semibold text-red-600">
                         通報 {p.report_count}件
                       </p>
                     )
@@ -178,7 +178,7 @@ export default function AdminPanel() {
                 <button
                   type="button"
                   onClick={() => handleDelete(id, tab)}
-                  className="h-fit shrink-0 rounded-lg bg-pinkbright px-3 py-1 text-sm font-semibold text-white"
+                  className="h-fit shrink-0 rounded-lg bg-red-600 px-3 py-1 text-sm font-semibold text-white"
                 >
                   削除
                 </button>

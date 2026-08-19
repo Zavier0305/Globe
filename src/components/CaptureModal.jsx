@@ -185,14 +185,14 @@ export default function CaptureModal({ onClose, onPosted }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 sm:items-center">
-      <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-deepnavy p-4 sm:rounded-2xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
+      <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-4 shadow-2xl sm:rounded-2xl">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white">ポーズを投稿</h2>
+          <h2 className="text-lg font-bold text-ink">ポーズを投稿</h2>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xl text-white"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-surfacemuted text-xl text-ink"
             aria-label="閉じる"
           >
             ×
@@ -201,7 +201,7 @@ export default function CaptureModal({ onClose, onPosted }) {
 
         {!previewUrl && (
           <div className="mb-4">
-            <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-cyanbright/50 bg-white/5 px-4 py-10 text-center text-cyanbright">
+            <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-accent/40 bg-accentsoft/30 px-4 py-10 text-center text-accent">
               <span className="text-3xl">📷</span>
               <span className="font-semibold">タップして撮影</span>
               <input
@@ -214,9 +214,9 @@ export default function CaptureModal({ onClose, onPosted }) {
               />
             </label>
             {cameraError && (
-              <div className="mt-3 rounded-lg bg-pinkbright/10 p-3 text-sm text-pinkbright">
+              <div className="mt-3 rounded-lg bg-accentsoft/50 p-3 text-sm text-accentdark">
                 <p className="mb-2">カメラを許可してください。</p>
-                <label className="inline-block cursor-pointer rounded-lg bg-pinkbright px-3 py-2 text-white">
+                <label className="inline-block cursor-pointer rounded-lg bg-accent px-3 py-2 text-white">
                   ギャラリーから選ぶ
                   <input
                     type="file"
@@ -240,7 +240,7 @@ export default function CaptureModal({ onClose, onPosted }) {
             <button
               type="button"
               onClick={handleRetake}
-              className="mt-2 w-full rounded-lg bg-white/10 py-2 text-sm text-white"
+              className="mt-2 w-full rounded-lg bg-surfacemuted py-2 text-sm text-ink"
             >
               撮り直す
             </button>
@@ -248,7 +248,7 @@ export default function CaptureModal({ onClose, onPosted }) {
         )}
 
         <div className="relative mb-4" ref={countryFieldRef}>
-          <label className="mb-1 block text-sm text-gray-300">国を選択</label>
+          <label className="mb-1 block text-sm text-inkmuted">国を選択</label>
           <input
             type="text"
             value={search}
@@ -260,22 +260,22 @@ export default function CaptureModal({ onClose, onPosted }) {
               setGeoHint(null)
             }}
             placeholder="国名で検索(例: 日本, Japan, JP)"
-            className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white placeholder:text-gray-500"
+            className="w-full rounded-lg border border-line bg-white px-3 py-2 text-ink placeholder:text-inkmuted"
           />
-          {geoHint && <p className="mt-1 text-xs text-cyanbright">{geoHint}</p>}
+          {geoHint && <p className="mt-1 text-xs text-accent">{geoHint}</p>}
           {showList && (
-            <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-white/10 bg-[#0a1730] shadow-xl">
+            <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-line bg-white shadow-xl">
               {filteredCountries.length === 0 && (
-                <li className="px-3 py-2 text-sm text-gray-500">該当する国がありません</li>
+                <li className="px-3 py-2 text-sm text-inkmuted">該当する国がありません</li>
               )}
               {filteredCountries.map((c) => (
                 <li key={c.code}>
                   <button
                     type="button"
                     onClick={() => selectCountry(c)}
-                    className="block w-full px-3 py-2 text-left text-white hover:bg-white/10"
+                    className="block w-full px-3 py-2 text-left text-ink hover:bg-surfacemuted"
                   >
-                    {c.name_ja} <span className="text-xs text-gray-400">({c.name_en})</span>
+                    {c.name_ja} <span className="text-xs text-inkmuted">({c.name_en})</span>
                   </button>
                 </li>
               ))}
@@ -283,7 +283,7 @@ export default function CaptureModal({ onClose, onPosted }) {
           )}
         </div>
 
-        <label className="mb-3 flex items-start gap-2 text-xs text-gray-300">
+        <label className="mb-3 flex items-start gap-2 text-xs text-inkmuted">
           <input
             type="checkbox"
             checked={agreed}
@@ -295,7 +295,7 @@ export default function CaptureModal({ onClose, onPosted }) {
               href="/?terms=1"
               target="_blank"
               rel="noreferrer"
-              className="text-cyanbright underline"
+              className="text-accent underline"
             >
               利用規約・プライバシーポリシー
             </a>
@@ -303,13 +303,13 @@ export default function CaptureModal({ onClose, onPosted }) {
           </span>
         </label>
 
-        {errorMsg && <p className="mb-3 text-sm text-pinkbright">{errorMsg}</p>}
+        {errorMsg && <p className="mb-3 text-sm text-accentdark">{errorMsg}</p>}
 
         <button
           type="button"
           disabled={submitting || !agreed}
           onClick={handleSubmit}
-          className="w-full rounded-xl bg-pinkbright py-3 text-lg font-bold text-white disabled:opacity-50"
+          className="w-full rounded-xl bg-accent py-3 text-lg font-bold text-white disabled:opacity-50"
         >
           {submitting ? '投稿中...' : '投稿する'}
         </button>
