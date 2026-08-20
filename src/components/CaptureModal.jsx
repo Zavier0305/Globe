@@ -1,22 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase, POSE_IMAGES_BUCKET } from '../lib/supabaseClient'
-import { COUNTRIES, findNearestCountry } from '../lib/countries'
+import { COUNTRIES, findNearestCountry, countryDisplayName } from '../lib/countries'
+import { fetchAllSpotsWithLocation } from '../lib/spots'
 import { saveDeleteToken } from '../lib/localDeleteTokens'
 import { playPostSuccessSound } from '../lib/sound'
 import { getDeviceId } from '../lib/deviceId'
 import { resizeImageFile } from '../lib/resizeImage'
+import { useTranslation } from '../lib/i18n/LanguageContext.jsx'
 
 const MESSAGE_MAX_LENGTH = 80
 
 // spot を渡すとスポット投稿モードになり、「この場所への一言」欄が表示される。
 // メインの地球儀からの投稿(spot なし)は従来通り言葉なしのまま。
-export default function CaptureModal({ onClose, onPosted, spot = null }) {
+// allowSpotChange=true のときは、投稿中でも別のスポットを選び直せるドロップダウンを表示する
+// (地球儀上のピンをタップして開いた場合も、通常のボタンから開いた場合も同じ画面を使うため)。
+export default function CaptureModal({ onClose, onPosted, spot = null, allowSpotChange = false }) {
+  const { t, lang } = useTranslation()
   const [file, setFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
   const [cameraError, setCameraError] = useState(false)
   const [search, setSearch] = useState('')
   const [selectedCountry, setSelectedCountry] = useState(null)
   const [showList, setShowList] = useState(false)
+  const [selectedSpot, setSelectedSpot] = useState(spot)
+  const [spotOptions, setSpotOptions] = useState([])
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState(null)
@@ -42,6 +49,18 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
     }
   }, [previewUrl])
 
+  // スポットを選び直せる場合のみ、選択肢一覧を取得する
+  useEffect(() => {
+    if (!allowSpotChange) return
+    let mounted = true
+    fetchAllSpotsWithLocation().then((data) => {
+      if (mounted) setSpotOptions(data)
+    })
+    return () => {
+      mounted = false
+    }
+  }, [allowSpotChange])
+
   // 位置情報が使えれば最寄りの国を自動選択する(任意・失敗しても無視)
   useEffect(() => {
     if (!navigator.geolocation) return
@@ -53,8 +72,8 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
         )
         if (nearest) {
           setSelectedCountry(nearest)
-          setSearch(`${nearest.name_ja} (${nearest.name_en})`)
-          setGeoHint(`現在地から${nearest.name_ja}を自動選択しました`)
+          setSearch(`${countryDisplayName(nearest, lang, nearest.name_ja)} (${nearest.name_en})`)
+          setGeoHint(t('capture.geoHint', { country: countryDisplayName(nearest, lang, nearest.name_ja) }))
         }
       },
       () => {
@@ -62,6 +81,7 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
       },
       { timeout: 5000, maximumAge: 10 * 60 * 1000 }
     )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const filteredCountries = useMemo(() => {
@@ -69,11 +89,12 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
     if (!q) return COUNTRIES
     return COUNTRIES.filter(
       (c) =>
+        countryDisplayName(c, lang, c.name_ja).toLowerCase().includes(q) ||
         c.name_ja.includes(search.trim()) ||
         c.name_en.toLowerCase().includes(q) ||
         c.code.toLowerCase().includes(q)
     )
-  }, [search])
+  }, [search, lang])
 
   async function handleFileChange(e) {
     const f = e.target.files && e.target.files[0]
@@ -83,7 +104,7 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
     }
     const MAX_SIZE_BYTES = 15 * 1024 * 1024
     if (f.size > MAX_SIZE_BYTES) {
-      setErrorMsg('画像サイズが大きすぎます(15MBまで)。別の写真を選んでください。')
+      setErrorMsg(t('capture.errImageTooLarge'))
       return
     }
     setErrorMsg(null)
@@ -95,9 +116,7 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
       // ファイルにする)
       const normalized = await resizeImageFile(f)
       if (normalized.type !== 'image/jpeg') {
-        setErrorMsg(
-          'この形式の画像は読み込めませんでした。別の写真を選ぶか、スクリーンショットなどJPEG/PNG形式でお試しください。'
-        )
+        setErrorMsg(t('capture.errUnsupportedFormat'))
         return
       }
       setFile(normalized)
@@ -115,7 +134,7 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
 
   function selectCountry(c) {
     setSelectedCountry(c)
-    setSearch(`${c.name_ja} (${c.name_en})`)
+    setSearch(`${countryDisplayName(c, lang, c.name_ja)} (${c.name_en})`)
     setShowList(false)
     setGeoHint(null)
   }
@@ -123,21 +142,19 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
   async function handleSubmit() {
     setErrorMsg(null)
     if (!file) {
-      setErrorMsg('写真を撮影してください。')
+      setErrorMsg(t('capture.errNoPhoto'))
       return
     }
     if (!selectedCountry) {
-      setErrorMsg('国を選択してください。')
+      setErrorMsg(t('capture.errNoCountry'))
       return
     }
     if (!agreed) {
-      setErrorMsg('利用規約・プライバシーポリシーへの同意が必要です。')
+      setErrorMsg(t('capture.errNoAgree'))
       return
     }
 
-    const confirmed = window.confirm(
-      'あなたの顔やポーズが世界中に公開されます。よろしいですか?'
-    )
+    const confirmed = window.confirm(t('capture.confirmPublish'))
     if (!confirmed) return
 
     setSubmitting(true)
@@ -151,7 +168,7 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
         .upload(path, file, { cacheControl: '3600', upsert: false })
       if (uploadError) {
         console.error(uploadError)
-        setErrorMsg('画像のアップロードに失敗しました。通信環境を確認して再度お試しください。')
+        setErrorMsg(t('capture.errUploadFail'))
         return
       }
 
@@ -166,18 +183,18 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
           p_country_code: selectedCountry.code,
           p_country_name: selectedCountry.name_ja,
           p_image_url: imageUrl,
-          p_message: spot ? message.trim() || null : null,
+          p_message: selectedSpot ? message.trim() || null : null,
           p_device_id: getDeviceId(),
           p_storage_path: path,
-          p_spot_id: spot?.id || null,
+          p_spot_id: selectedSpot?.id || null,
         }
       )
       if (insertError) {
         console.error(insertError)
         if (insertError.message?.includes('rate_limited')) {
-          setErrorMsg('投稿が多すぎます。10分ほど時間をおいてから再度お試しください。')
+          setErrorMsg(t('capture.errRateLimited'))
         } else {
-          setErrorMsg('投稿の登録に失敗しました。もう一度お試しください。')
+          setErrorMsg(t('capture.errInsertFail'))
         }
         return
       }
@@ -194,13 +211,13 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
           country_code: selectedCountry.code,
           country_name: selectedCountry.name_ja,
           image_url: imageUrl,
-          message: spot ? message.trim() || null : null,
+          message: selectedSpot ? message.trim() || null : null,
           created_at: created?.created_at || new Date().toISOString(),
         })
       onClose()
     } catch (err) {
       console.error(err)
-      setErrorMsg('投稿に失敗しました。通信環境を確認して再度お試しください。')
+      setErrorMsg(t('capture.errGeneric'))
     } finally {
       setSubmitting(false)
     }
@@ -211,16 +228,16 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
       <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-4 shadow-2xl sm:rounded-2xl">
         <div className="mb-3 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-ink">ポーズを投稿</h2>
-            {spot && (
-              <p className="text-xs text-accent">{spot.name}</p>
+            <h2 className="text-lg font-bold text-ink">{t('capture.title')}</h2>
+            {selectedSpot && !allowSpotChange && (
+              <p className="text-xs text-accent">{selectedSpot.name}</p>
             )}
           </div>
           <button
             type="button"
             onClick={onClose}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-surfacemuted text-xl text-ink"
-            aria-label="閉じる"
+            aria-label={t('app.close')}
           >
             ×
           </button>
@@ -231,7 +248,7 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
             <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-accent/40 bg-accentsoft/30 px-4 py-10 text-center text-accent">
               <span className="text-3xl">{processingFile ? '⏳' : '📷'}</span>
               <span className="font-semibold">
-                {processingFile ? '画像を処理中...' : 'タップして撮影'}
+                {processingFile ? t('capture.processing') : t('capture.tapToShoot')}
               </span>
               <input
                 ref={fileInputRef}
@@ -244,9 +261,9 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
             </label>
             {cameraError && (
               <div className="mt-3 rounded-lg bg-accentsoft/50 p-3 text-sm text-accentdark">
-                <p className="mb-2">カメラを許可してください。</p>
+                <p className="mb-2">{t('capture.cameraDenied')}</p>
                 <label className="inline-block cursor-pointer rounded-lg bg-accent px-3 py-2 text-white">
-                  ギャラリーから選ぶ
+                  {t('capture.pickFromGallery')}
                   <input
                     type="file"
                     accept="image/*"
@@ -263,7 +280,7 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
           <div className="mb-4">
             <img
               src={previewUrl}
-              alt="プレビュー"
+              alt=""
               className="w-full rounded-xl object-cover"
             />
             <button
@@ -271,13 +288,13 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
               onClick={handleRetake}
               className="mt-2 w-full rounded-lg bg-surfacemuted py-2 text-sm text-ink"
             >
-              撮り直す
+              {t('capture.retake')}
             </button>
           </div>
         )}
 
         <div className="relative mb-4" ref={countryFieldRef}>
-          <label className="mb-1 block text-sm text-inkmuted">国を選択</label>
+          <label className="mb-1 block text-sm text-inkmuted">{t('capture.countryLabel')}</label>
           <input
             type="text"
             value={search}
@@ -288,14 +305,14 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
               setShowList(true)
               setGeoHint(null)
             }}
-            placeholder="国名で検索(例: 日本, Japan, JP)"
+            placeholder={t('capture.countrySearchPlaceholder')}
             className="w-full rounded-lg border border-line bg-white px-3 py-2 text-ink placeholder:text-inkmuted"
           />
           {geoHint && <p className="mt-1 text-xs text-accent">{geoHint}</p>}
           {showList && (
             <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-line bg-white shadow-xl">
               {filteredCountries.length === 0 && (
-                <li className="px-3 py-2 text-sm text-inkmuted">該当する国がありません</li>
+                <li className="px-3 py-2 text-sm text-inkmuted">{t('capture.countryNoMatch')}</li>
               )}
               {filteredCountries.map((c) => (
                 <li key={c.code}>
@@ -304,7 +321,8 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
                     onClick={() => selectCountry(c)}
                     className="block w-full px-3 py-2 text-left text-ink hover:bg-surfacemuted"
                   >
-                    {c.name_ja} <span className="text-xs text-inkmuted">({c.name_en})</span>
+                    {countryDisplayName(c, lang, c.name_ja)}{' '}
+                    <span className="text-xs text-inkmuted">({c.name_en})</span>
                   </button>
                 </li>
               ))}
@@ -312,17 +330,38 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
           )}
         </div>
 
-        {spot && (
+        {allowSpotChange && (
+          <div className="mb-4">
+            <label className="mb-1 block text-sm text-inkmuted">{t('capture.spotPickerLabel')}</label>
+            <select
+              value={selectedSpot?.id || ''}
+              onChange={(e) => {
+                const next = spotOptions.find((s) => s.id === e.target.value)
+                setSelectedSpot(next || null)
+              }}
+              className="w-full rounded-lg border border-line bg-white px-3 py-2 text-ink"
+            >
+              <option value="">{t('capture.spotPickerNone')}</option>
+              {spotOptions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {selectedSpot && (
           <div className="mb-4">
             <label className="mb-1 block text-sm text-inkmuted">
-              {spot.name}への一言(任意)
+              {t('capture.spotMessageLabel', { spot: selectedSpot.name })}
             </label>
             <input
               type="text"
               value={message}
               maxLength={MESSAGE_MAX_LENGTH}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="例: 最高の一日でした!"
+              placeholder={t('capture.spotMessagePlaceholder')}
               className="w-full rounded-lg border border-line bg-white px-3 py-2 text-ink placeholder:text-inkmuted"
             />
             <p className="mt-1 text-right text-xs text-inkmuted">
@@ -339,15 +378,16 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
             className="mt-0.5 h-4 w-4 shrink-0"
           />
           <span>
+            {t('capture.agreePrefix')}
             <a
               href="/?terms=1"
               target="_blank"
               rel="noreferrer"
               className="text-accent underline"
             >
-              利用規約・プライバシーポリシー
+              {t('app.termsLink')}
             </a>
-            に同意します(顔写真が世界中に公開されます)
+            {t('capture.agreeSuffix')}
           </span>
         </label>
 
@@ -359,7 +399,7 @@ export default function CaptureModal({ onClose, onPosted, spot = null }) {
           onClick={handleSubmit}
           className="w-full rounded-xl bg-accent py-3 text-lg font-bold text-white disabled:opacity-50"
         >
-          {submitting ? '投稿中...' : '投稿する'}
+          {submitting ? t('capture.submitting') : t('capture.submit')}
         </button>
       </div>
     </div>

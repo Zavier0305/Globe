@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
+import { LanguageProvider } from './lib/i18n/LanguageContext.jsx'
 import './index.css'
 
 const AdminPanel = lazy(() => import('./components/AdminPanel.jsx'))
@@ -36,6 +37,8 @@ function Root() {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <Root />
+    <LanguageProvider>
+      <Root />
+    </LanguageProvider>
   </React.StrictMode>
 )

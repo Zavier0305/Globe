@@ -6,8 +6,10 @@ import CountryGallery from './CountryGallery.jsx'
 import usePoses from '../lib/usePoses.js'
 import { fetchSpotBySlug, fetchSpotPoses } from '../lib/spots.js'
 import { flagEmoji } from '../lib/flag.js'
+import { useTranslation } from '../lib/i18n/LanguageContext.jsx'
 
 export default function SpotPage({ slug }) {
+  const { t } = useTranslation()
   const [spot, setSpot] = useState(null)
   const [poses, setPoses] = useState([])
   const [loading, setLoading] = useState(true)
@@ -58,7 +60,7 @@ export default function SpotPage({ slug }) {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface">
-        <p className="text-sm text-inkmuted">読み込み中...</p>
+        <p className="text-sm text-inkmuted">{t('app.loading')}</p>
       </div>
     )
   }
@@ -66,12 +68,10 @@ export default function SpotPage({ slug }) {
   if (notFound) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-surface px-6 text-center">
-        <p className="text-lg font-bold text-ink">スポットが見つかりません</p>
-        <p className="text-sm text-inkmuted">
-          URLが正しいかご確認ください。
-        </p>
+        <p className="text-lg font-bold text-ink">{t('spotPage.notFoundTitle')}</p>
+        <p className="text-sm text-inkmuted">{t('spotPage.notFoundBody')}</p>
         <a href="/" className="text-sm text-accent underline">
-          地球儀をひらく
+          {t('spotPage.openGlobe')}
         </a>
       </div>
     )
@@ -85,9 +85,7 @@ export default function SpotPage({ slug }) {
             Spot
           </p>
           <h1 className="mt-1 text-xl font-bold text-ink">{spot.name}</h1>
-          <p className="mt-2 text-sm text-inkmuted">
-            ここでポーズを撮って、この場所への一言を残しましょう。投稿は世界の地球儀にも表示されます。
-          </p>
+          <p className="mt-2 text-sm text-inkmuted">{t('spotPage.intro')}</p>
         </div>
       </header>
 
@@ -102,27 +100,29 @@ export default function SpotPage({ slug }) {
           href="/"
           className="absolute bottom-3 right-3 rounded-full border border-line bg-white/90 px-3 py-1 text-xs font-semibold text-accent shadow-sm backdrop-blur"
         >
-          全画面で見る →
+          {t('spotPage.viewFullscreen')}
         </a>
       </section>
 
       <main className="mx-auto max-w-2xl px-4 py-5">
         {justPosted && (
           <p className="mb-4 rounded-xl bg-accentsoft px-4 py-3 text-sm font-semibold text-accentdark">
-            投稿しました!ありがとうございます 🎉
+            {t('spotPage.postedThanks')}
           </p>
         )}
 
         <h2 className="mb-3 text-sm font-bold text-ink">
-          この場所からの投稿
-          <span className="ml-2 font-normal text-inkmuted">{poses.length}件</span>
+          {t('spotPage.postsFromHere')}
+          <span className="ml-2 font-normal text-inkmuted">
+            {poses.length}{t('spotPage.postsSuffix')}
+          </span>
         </h2>
 
         {poses.length === 0 ? (
           <p className="rounded-xl border border-line bg-white px-4 py-8 text-center text-sm text-inkmuted">
-            まだ投稿がありません。
+            {t('spotPage.emptyLine1')}
             <br />
-            最初のポーズを残してみませんか?
+            {t('spotPage.emptyLine2')}
           </p>
         ) : (
           <div className="flex flex-col gap-3">
@@ -145,7 +145,7 @@ export default function SpotPage({ slug }) {
                     <p className="mt-1 break-words text-sm text-ink">{p.message}</p>
                   )}
                   <p className="mt-1 text-xs text-inkmuted">
-                    {new Date(p.created_at).toLocaleString('ja-JP')}
+                    {new Date(p.created_at).toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -154,13 +154,13 @@ export default function SpotPage({ slug }) {
         )}
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-2 bg-gradient-to-t from-white via-white/90 to-transparent px-4 pb-3 pt-10">
+      <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-2 bg-gradient-to-t from-white via-white/90 to-transparent px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-10">
         <button
           type="button"
           onClick={() => setShowCapture(true)}
           className="w-full max-w-md rounded-full bg-accent py-4 text-lg font-bold text-white shadow-lg shadow-accent/30 active:scale-95"
         >
-          📸 ここでポーズを投稿する
+          {t('spotPage.postButton')}
         </button>
         <a
           href="/?terms=1"
@@ -168,13 +168,14 @@ export default function SpotPage({ slug }) {
           rel="noreferrer"
           className="text-xs text-inkmuted underline"
         >
-          利用規約・プライバシーポリシー
+          {t('app.termsLink')}
         </a>
       </div>
 
       {showCapture && (
         <CaptureModal
           spot={spot}
+          allowSpotChange={false}
           onClose={() => setShowCapture(false)}
           onPosted={handlePosted}
         />

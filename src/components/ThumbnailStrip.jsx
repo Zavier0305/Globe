@@ -6,25 +6,23 @@ export default function ThumbnailStrip({ points, onSelect }) {
     .slice(0, 15)
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-24 px-3">
-      <div className="pointer-events-auto flex gap-2 overflow-x-auto pb-1">
-        {latest.map((pose) => (
-          <button
-            key={pose.id}
-            type="button"
-            onClick={() => onSelect(pose)}
-            className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-line bg-surfacemuted shadow-md"
-            title={pose.country_name}
-          >
-            <img
-              src={pose.image_url}
-              alt={pose.country_name}
-              className="h-full w-full object-cover"
-              loading="lazy"
-            />
-          </button>
-        ))}
-      </div>
+    <div className="thumbnail-strip flex w-full max-w-md gap-2 overflow-x-auto pb-1">
+      {latest.map((pose) => (
+        <button
+          key={pose.id}
+          type="button"
+          onClick={() => onSelect(pose)}
+          className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-line bg-surfacemuted shadow-md"
+          title={pose.country_name}
+        >
+          <img
+            src={pose.image_url}
+            alt={pose.country_name}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        </button>
+      ))}
     </div>
   )
 }

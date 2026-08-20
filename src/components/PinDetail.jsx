@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { getDeleteToken, removeDeleteToken } from '../lib/localDeleteTokens'
 import { deleteOwnPose } from '../lib/deletePose'
+import { useTranslation } from '../lib/i18n/LanguageContext.jsx'
 
 export default function PinDetail({ pose, onClose, onDeleted }) {
+  const { t } = useTranslation()
   const [imageFailed, setImageFailed] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [reporting, setReporting] = useState(false)
@@ -17,14 +19,14 @@ export default function PinDetail({ pose, onClose, onDeleted }) {
   async function handleDelete() {
     const token = getDeleteToken(pose.id)
     if (!token) return
-    const confirmed = window.confirm('この投稿を取り消しますか?元に戻せません。')
+    const confirmed = window.confirm(t('pin.deleteConfirm'))
     if (!confirmed) return
 
     setDeleting(true)
     try {
       const { success } = await deleteOwnPose(pose.id, token)
       if (!success) {
-        setActionMsg('取り消しに失敗しました。もう一度お試しください。')
+        setActionMsg(t('pin.deleteFail'))
         return
       }
       removeDeleteToken(pose.id)
@@ -41,11 +43,11 @@ export default function PinDetail({ pose, onClose, onDeleted }) {
       const { error } = await supabase.rpc('report_pose', { p_id: pose.id })
       if (error) {
         console.error(error)
-        setActionMsg('通報に失敗しました。')
+        setActionMsg(t('pin.reportFail'))
         return
       }
       setReported(true)
-      setActionMsg('通報しました。ご協力ありがとうございます。')
+      setActionMsg(t('pin.reportThanks'))
     } finally {
       setReporting(false)
     }
@@ -64,13 +66,13 @@ export default function PinDetail({ pose, onClose, onDeleted }) {
           type="button"
           onClick={onClose}
           className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-xl text-white"
-          aria-label="閉じる"
+          aria-label={t('app.close')}
         >
           ×
         </button>
         {imageFailed ? (
           <div className="flex h-64 w-full items-center justify-center bg-surfacemuted text-sm text-inkmuted">
-            画像を読み込めませんでした
+            {t('pin.imageLoadFail')}
           </div>
         ) : (
           <img
@@ -98,7 +100,7 @@ export default function PinDetail({ pose, onClose, onDeleted }) {
                 onClick={handleDelete}
                 className="flex-1 rounded-lg bg-surfacemuted py-2 text-sm font-semibold text-ink disabled:opacity-50"
               >
-                {deleting ? '取り消し中...' : 'この投稿を取り消す'}
+                {deleting ? t('pin.deleting') : t('pin.delete')}
               </button>
             )}
             <button
@@ -107,7 +109,7 @@ export default function PinDetail({ pose, onClose, onDeleted }) {
               onClick={handleReport}
               className="flex-1 rounded-lg bg-surfacemuted py-2 text-sm font-semibold text-inkmuted disabled:opacity-50"
             >
-              {reported ? '通報済み' : reporting ? '通報中...' : '不適切と通報する'}
+              {reported ? t('pin.reported') : reporting ? t('pin.reporting') : t('pin.report')}
             </button>
           </div>
         </div>

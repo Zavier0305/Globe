@@ -1,4 +1,7 @@
+import { useTranslation } from '../lib/i18n/LanguageContext.jsx'
+
 export default function CountryGallery({ countryPoint, onClose, onSelectPose }) {
+  const { t } = useTranslation()
   if (!countryPoint) return null
 
   return (
@@ -14,14 +17,14 @@ export default function CountryGallery({ countryPoint, onClose, onSelectPose }) 
           <h2 className="text-lg font-bold text-ink">
             {countryPoint.country_name}
             <span className="ml-2 text-sm font-normal text-accent">
-              {countryPoint.poses.length}件の投稿
+              {countryPoint.poses.length}{t('gallery.postsSuffix')}
             </span>
           </h2>
           <button
             type="button"
             onClick={onClose}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-surfacemuted text-xl text-ink"
-            aria-label="閉じる"
+            aria-label={t('app.close')}
           >
             ×
           </button>

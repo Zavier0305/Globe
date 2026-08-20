@@ -1,7 +1,7 @@
 {
-  "name": "世界のポーズ地球儀",
-  "short_name": "ポーズ地球儀",
-  "description": "世界中から届くポーズ写真を地球儀にピン留めして表示するアプリ",
+  "name": "世界の写真地球儀",
+  "short_name": "写真地球儀",
+  "description": "世界中から届く写真を地球儀にピン留めして表示するアプリ",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

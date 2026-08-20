@@ -30,8 +30,16 @@ export default function AdminPanel() {
 
   const [spots, setSpots] = useState([])
   const [newSpotName, setNewSpotName] = useState('')
+  const [newSpotLat, setNewSpotLat] = useState('')
+  const [newSpotLng, setNewSpotLng] = useState('')
   const [spotSubmitting, setSpotSubmitting] = useState(false)
   const [spotError, setSpotError] = useState(null)
+
+  // スポットの座標編集(地球儀にピン表示するために必要)
+  const [editingSpotLocId, setEditingSpotLocId] = useState(null)
+  const [editSpotLat, setEditSpotLat] = useState('')
+  const [editSpotLng, setEditSpotLng] = useState('')
+  const [spotLocSaving, setSpotLocSaving] = useState(false)
 
   // 投稿の所属スポット・一言の編集
   const [editingId, setEditingId] = useState(null)
@@ -112,6 +120,8 @@ export default function AdminPanel() {
       p_password: password,
       p_name: name,
       p_slug: slug,
+      p_lat: newSpotLat.trim() === '' ? null : Number(newSpotLat),
+      p_lng: newSpotLng.trim() === '' ? null : Number(newSpotLng),
     })
     setSpotSubmitting(false)
     if (error) {
@@ -124,8 +134,65 @@ export default function AdminPanel() {
       return
     }
     setNewSpotName('')
+    setNewSpotLat('')
+    setNewSpotLng('')
     setActionMsg('スポットを作成しました。')
     await loadSpots()
+  }
+
+  function useCurrentLocationForNewSpot() {
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setNewSpotLat(String(pos.coords.latitude))
+        setNewSpotLng(String(pos.coords.longitude))
+      },
+      () => setSpotError('現在地を取得できませんでした。')
+    )
+  }
+
+  function startEditSpotLocation(spot) {
+    setEditingSpotLocId(spot.id)
+    setEditSpotLat(spot.lat != null ? String(spot.lat) : '')
+    setEditSpotLng(spot.lng != null ? String(spot.lng) : '')
+  }
+
+  function cancelEditSpotLocation() {
+    setEditingSpotLocId(null)
+    setEditSpotLat('')
+    setEditSpotLng('')
+  }
+
+  function useCurrentLocationForSpotEdit() {
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setEditSpotLat(String(pos.coords.latitude))
+        setEditSpotLng(String(pos.coords.longitude))
+      },
+      () => setActionMsg('現在地を取得できませんでした。')
+    )
+  }
+
+  async function saveSpotLocation(spotId) {
+    setSpotLocSaving(true)
+    const lat = editSpotLat.trim() === '' ? null : Number(editSpotLat)
+    const lng = editSpotLng.trim() === '' ? null : Number(editSpotLng)
+    const { data, error } = await supabase.rpc('admin_update_spot', {
+      p_password: password,
+      p_id: spotId,
+      p_lat: lat,
+      p_lng: lng,
+    })
+    setSpotLocSaving(false)
+    if (error || !data) {
+      console.error(error)
+      setActionMsg('座標の更新に失敗しました。')
+      return
+    }
+    setSpots((prev) => prev.map((s) => (s.id === spotId ? { ...s, lat, lng } : s)))
+    cancelEditSpotLocation()
+    setActionMsg('座標を更新しました。地球儀にピン表示されます。')
   }
 
   function startEdit(pose) {
@@ -454,6 +521,31 @@ export default function AdminPanel() {
                   URL: /spot/{slugify(newSpotName)}
                 </p>
               )}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={newSpotLat}
+                  onChange={(e) => setNewSpotLat(e.target.value)}
+                  placeholder="緯度(任意・地球儀にピン表示する場合)"
+                  className="w-1/2 rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-inkmuted"
+                />
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={newSpotLng}
+                  onChange={(e) => setNewSpotLng(e.target.value)}
+                  placeholder="経度(任意)"
+                  className="w-1/2 rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-inkmuted"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={useCurrentLocationForNewSpot}
+                className="self-start rounded-lg border border-line px-2 py-1 text-xs text-accent"
+              >
+                📍 現在地を使用
+              </button>
               {spotError && <p className="text-sm text-red-600">{spotError}</p>}
               <button
                 type="submit"
@@ -478,6 +570,73 @@ export default function AdminPanel() {
                     <div>
                       <p className="font-bold text-ink">{c.name}</p>
                       <p className="text-xs text-inkmuted">投稿 {c.post_count}件</p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold text-inkmuted">
+                        地球儀での座標(未設定だとピン表示されません)
+                      </p>
+                      {editingSpotLocId === c.id ? (
+                        <div className="mt-1 flex flex-col gap-2">
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={editSpotLat}
+                              onChange={(e) => setEditSpotLat(e.target.value)}
+                              placeholder="緯度"
+                              className="w-1/2 rounded-lg border border-line bg-white px-2 py-1 text-xs text-ink placeholder:text-inkmuted"
+                            />
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={editSpotLng}
+                              onChange={(e) => setEditSpotLng(e.target.value)}
+                              placeholder="経度"
+                              className="w-1/2 rounded-lg border border-line bg-white px-2 py-1 text-xs text-ink placeholder:text-inkmuted"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={useCurrentLocationForSpotEdit}
+                              className="rounded-lg border border-line px-2 py-1 text-xs text-accent"
+                            >
+                              📍 現在地を使用
+                            </button>
+                            <button
+                              type="button"
+                              disabled={spotLocSaving}
+                              onClick={() => saveSpotLocation(c.id)}
+                              className="rounded-lg bg-accent px-2 py-1 text-xs font-bold text-white disabled:opacity-50"
+                            >
+                              {spotLocSaving ? '保存中...' : '保存'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelEditSpotLocation}
+                              className="rounded-lg border border-line px-2 py-1 text-xs text-inkmuted"
+                            >
+                              キャンセル
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-1 flex items-center gap-2">
+                          <p className="text-xs text-ink">
+                            {c.lat != null && c.lng != null
+                              ? `${c.lat.toFixed(4)}, ${c.lng.toFixed(4)}`
+                              : '未設定'}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => startEditSpotLocation(c)}
+                            className="rounded-lg border border-line px-2 py-1 text-xs text-accent"
+                          >
+                            編集
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <div>

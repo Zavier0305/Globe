@@ -14,6 +14,20 @@ export async function fetchSpotBySlug(slug) {
   return data
 }
 
+// 座標が設定済みの全スポット(地球儀にピン表示するため)
+export async function fetchAllSpotsWithLocation() {
+  const { data, error } = await supabase
+    .from('spots')
+    .select('id, name, slug, lat, lng')
+    .not('lat', 'is', null)
+    .not('lng', 'is', null)
+  if (error) {
+    console.error('スポット一覧の取得に失敗しました', error)
+    return []
+  }
+  return data
+}
+
 // そのスポットに投稿された写真一覧(一言を含む)
 export async function fetchSpotPoses(spotId) {
   const { data, error } = await supabase

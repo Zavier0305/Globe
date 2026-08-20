@@ -15,7 +15,7 @@ export default function TermsPage() {
 
           <h3 className="mb-1 mt-4 font-semibold text-ink">1. 本規約について</h3>
           <p className="text-sm leading-relaxed">
-            本規約は、「世界のポーズ地球儀」(以下「本サービス」)の利用条件を定めるものです。本サービスを利用した時点で、本規約に同意したものとみなします。
+            本規約は、「世界の写真地球儀」(以下「本サービス」)の利用条件を定めるものです。本サービスを利用した時点で、本規約に同意したものとみなします。
           </p>
 
           <h3 className="mb-1 mt-4 font-semibold text-ink">2. サービス内容</h3>

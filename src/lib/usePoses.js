@@ -42,7 +42,7 @@ export default function usePoses() {
       if (!mounted) return
       if (error) {
         console.error('posesの取得に失敗しました', error)
-        setErrorMsg('投稿の読み込みに失敗しました。通信環境を確認してください。')
+        setErrorMsg('load_failed')
         setLoading(false)
         return
       }
@@ -97,7 +97,7 @@ export default function usePoses() {
       )
       .subscribe((status) => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          setErrorMsg('リアルタイム更新に接続できませんでした。再読み込みしてください。')
+          setErrorMsg('realtime_failed')
         }
       })
 
