@@ -2,11 +2,32 @@ const MAX_DIMENSION = 1600
 const JPEG_QUALITY = 0.82
 const THUMBNAIL_DIMENSION = 240
 const THUMBNAIL_QUALITY = 0.7
+// これより大きいファイルは、フル解像度のままデコードするとメモリを
+// 大量に消費するおそれがあるため縮小デコードを試みる
+const LARGE_FILE_BYTES = 2 * 1024 * 1024
+
+// 最近のスマホのカメラ(4000万画素超なども珍しくない)で撮った写真を
+// そのままフルデコードすると、1枚で100〜200MB超のメモリを一気に確保する
+// ことがあり、地球儀のWebGL分と合わさって「メモリー不足のため操作を完了
+// できません」というブラウザ/OSのクラッシュを招く。対応ブラウザでは
+// createImageBitmap の resizeWidth を使い、ネイティブの縮小デコード機能で
+// 最初から小さくデコードすることでこれを避ける(非対応環境ではフル
+// デコードにフォールバックする)。
+async function decodeBitmap(file, targetDimension) {
+  if (file.size > LARGE_FILE_BYTES) {
+    const scaled = await createImageBitmap(file, {
+      resizeWidth: targetDimension,
+      resizeQuality: 'medium',
+    }).catch(() => null)
+    if (scaled) return scaled
+  }
+  return createImageBitmap(file).catch(() => null)
+}
 
 async function toResizedFile(file, maxDimension, quality, suffix) {
   if (!file.type.startsWith('image/')) return file
 
-  const bitmap = await createImageBitmap(file).catch(() => null)
+  const bitmap = await decodeBitmap(file, maxDimension)
   if (!bitmap) return file
 
   const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height))
