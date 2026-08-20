@@ -252,9 +252,9 @@ export default function CaptureModal({ onClose, onPosted, spot = null, allowSpot
 
         {!previewUrl && (
           <div className="mb-4">
-            {/* capture属性で前面カメラを強制すると、LINE等のアプリ内ブラウザや
-                一部Android端末でカメラが起動しない/失敗を繰り返す不具合が
-                多かったため、OS標準の選択肢(カメラ・アルバムなど)に委ねる */}
+            {/* capture="user"のように前面カメラを固定すると、LINE等のアプリ内
+                ブラウザや一部Android端末で起動に失敗しやすいため、値は指定せず
+                「カメラのみ・facingModeはOS任せ」にする(アルバムからは選べない) */}
             <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-accent/40 bg-accentsoft/30 px-4 py-10 text-center text-accent">
               <span className="text-3xl">{processingFile ? '⏳' : '📷'}</span>
               <span className="font-semibold">
@@ -264,6 +264,7 @@ export default function CaptureModal({ onClose, onPosted, spot = null, allowSpot
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
+                capture
                 className="hidden"
                 onChange={handleFileChange}
               />
