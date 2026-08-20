@@ -18,7 +18,6 @@ export default function CaptureModal({ onClose, onPosted, spot = null, allowSpot
   const { t, lang } = useTranslation()
   const [file, setFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
-  const [cameraError, setCameraError] = useState(false)
   const [search, setSearch] = useState('')
   const [selectedCountry, setSelectedCountry] = useState(null)
   const [showList, setShowList] = useState(false)
@@ -97,18 +96,22 @@ export default function CaptureModal({ onClose, onPosted, spot = null, allowSpot
   }, [search, lang])
 
   async function handleFileChange(e) {
-    const f = e.target.files && e.target.files[0]
-    if (!f) {
-      setCameraError(true)
-      return
-    }
+    const inputEl = e.target
+    const f = inputEl.files && inputEl.files[0]
+    // ユーザーがカメラ/選択をキャンセルしただけの場合は何もしない
+    // (「カメラを許可してください」等の紛らわしいエラーは出さない)
+    if (!f) return
+
+    setErrorMsg(null)
     const MAX_SIZE_BYTES = 15 * 1024 * 1024
     if (f.size > MAX_SIZE_BYTES) {
       setErrorMsg(t('capture.errImageTooLarge'))
+      // inputのvalueをリセットしないと、同じファイルを選び直したときに
+      // changeイベントが発火せず「何度やっても反応しない」状態になる
+      inputEl.value = ''
       return
     }
-    setErrorMsg(null)
-    setCameraError(false)
+
     setProcessingFile(true)
     try {
       // 選択直後にJPEGへ正規化しておく(HEIC等ブラウザで表示できない形式の
@@ -121,8 +124,12 @@ export default function CaptureModal({ onClose, onPosted, spot = null, allowSpot
       }
       setFile(normalized)
       setPreviewUrl(URL.createObjectURL(normalized))
+    } catch (err) {
+      console.error(err)
+      setErrorMsg(t('capture.errUnsupportedFormat'))
     } finally {
       setProcessingFile(false)
+      inputEl.value = ''
     }
   }
 
@@ -245,6 +252,9 @@ export default function CaptureModal({ onClose, onPosted, spot = null, allowSpot
 
         {!previewUrl && (
           <div className="mb-4">
+            {/* capture属性で前面カメラを強制すると、LINE等のアプリ内ブラウザや
+                一部Android端末でカメラが起動しない/失敗を繰り返す不具合が
+                多かったため、OS標準の選択肢(カメラ・アルバムなど)に委ねる */}
             <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-accent/40 bg-accentsoft/30 px-4 py-10 text-center text-accent">
               <span className="text-3xl">{processingFile ? '⏳' : '📷'}</span>
               <span className="font-semibold">
@@ -254,25 +264,10 @@ export default function CaptureModal({ onClose, onPosted, spot = null, allowSpot
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                capture="user"
                 className="hidden"
                 onChange={handleFileChange}
               />
             </label>
-            {cameraError && (
-              <div className="mt-3 rounded-lg bg-accentsoft/50 p-3 text-sm text-accentdark">
-                <p className="mb-2">{t('capture.cameraDenied')}</p>
-                <label className="inline-block cursor-pointer rounded-lg bg-accent px-3 py-2 text-white">
-                  {t('capture.pickFromGallery')}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleFileChange}
-                  />
-                </label>
-              </div>
-            )}
           </div>
         )}
 
