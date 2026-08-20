@@ -20,15 +20,10 @@ export default function TermsPage() {
 
           <h3 className="mb-1 mt-4 font-semibold text-ink">2. サービス内容</h3>
           <p className="text-sm leading-relaxed">
-            本サービスは、利用者が撮影した写真と選択した国情報を投稿し、地球儀上にピンとして表示するサービスです。投稿された写真は、本サービスにアクセスできる全ての利用者に公開されます。アカウント登録は不要です。
+            本サービスは、利用者が撮影した写真と選択した国情報を投稿し、地球儀上にピンとして表示するサービスです。投稿された写真は、本サービスのURL(リンク)を知っている方が閲覧できます。本サービスは検索エンジンには登録されておらず、リンクを知っている方のみがアクセスできる限定公開の状態です。アカウント登録は不要です。
           </p>
 
-          <h3 className="mb-1 mt-4 font-semibold text-ink">3. 未成年者の利用について</h3>
-          <p className="text-sm leading-relaxed">
-            未成年の方が投稿する場合は、あらかじめ保護者等の同意を得たうえでご利用ください。
-          </p>
-
-          <h3 className="mb-1 mt-4 font-semibold text-ink">4. 禁止事項</h3>
+          <h3 className="mb-1 mt-4 font-semibold text-ink">3. 禁止事項</h3>
           <ul className="ml-5 list-disc text-sm leading-relaxed">
             <li>自分以外の人物が写った写真を、本人の同意なく投稿すること</li>
             <li>他者を誹謗中傷、脅迫、差別する内容を含む写真の投稿</li>
@@ -38,17 +33,17 @@ export default function TermsPage() {
             <li>法令に違反する行為</li>
           </ul>
 
-          <h3 className="mb-1 mt-4 font-semibold text-ink">5. 投稿の削除</h3>
+          <h3 className="mb-1 mt-4 font-semibold text-ink">4. 投稿の削除</h3>
           <p className="text-sm leading-relaxed">
             投稿者本人は、投稿から一定時間内であれば自分の投稿を削除できます。また、他の利用者による通報や運営による判断により、禁止事項に該当すると判断された投稿は予告なく削除される場合があります。
           </p>
 
-          <h3 className="mb-1 mt-4 font-semibold text-ink">6. 免責事項</h3>
+          <h3 className="mb-1 mt-4 font-semibold text-ink">5. 免責事項</h3>
           <p className="text-sm leading-relaxed">
             本サービスの利用により生じた損害について、運営者は故意または重過失がある場合を除き責任を負いません。本サービスは予告なく内容の変更、中断、終了する場合があります。
           </p>
 
-          <h3 className="mb-1 mt-4 font-semibold text-ink">7. 規約の変更</h3>
+          <h3 className="mb-1 mt-4 font-semibold text-ink">6. 規約の変更</h3>
           <p className="text-sm leading-relaxed">
             本規約は必要に応じて変更されることがあります。変更後の規約は、本ページに掲載した時点から効力を持つものとします。
           </p>
@@ -73,7 +68,7 @@ export default function TermsPage() {
 
           <h3 className="mb-1 mt-4 font-semibold text-ink">3. 第三者への提供</h3>
           <p className="text-sm leading-relaxed">
-            投稿された写真・国情報は、本サービスの性質上、本サービスにアクセスした全ての利用者から閲覧可能です。これ以外の目的で、取得した情報を第三者に販売・提供することはありません。なお、本サービスはSupabase・Vercel等の外部インフラ事業者上で稼働しており、これらの事業者にはサービス提供に必要な範囲でデータの保管を委託しています。
+            投稿された写真・国情報は、本サービスの性質上、本サービスのURL(リンク)を知っている利用者から閲覧可能です。本サービスは検索エンジンには登録されておらず、限定公開の状態です。これ以外の目的で、取得した情報を第三者に販売・提供することはありません。なお、本サービスはSupabase・Vercel等の外部インフラ事業者上で稼働しており、これらの事業者にはサービス提供に必要な範囲でデータの保管を委託しています。
           </p>
 
           <h3 className="mb-1 mt-4 font-semibold text-ink">4. 保存期間・削除</h3>

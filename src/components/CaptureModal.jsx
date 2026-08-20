@@ -9,6 +9,15 @@ import { resizeImageFile, createThumbnailFile } from '../lib/resizeImage'
 import { useTranslation } from '../lib/i18n/LanguageContext.jsx'
 
 const MESSAGE_MAX_LENGTH = 80
+const WISH_CATEGORIES = ['clothes', 'shoes', 'accessories', 'food', 'goods', 'other']
+const WISH_ICONS = {
+  clothes: '👕',
+  shoes: '👟',
+  accessories: '💍',
+  food: '🍔',
+  goods: '🎁',
+  other: '✨',
+}
 
 // spot を渡すとスポット投稿モードになり、「この場所への一言」欄が表示される。
 // メインの地球儀からの投稿(spot なし)は従来通り言葉なしのまま。
@@ -23,6 +32,7 @@ export default function CaptureModal({ onClose, onPosted, spot = null, allowSpot
   const [showList, setShowList] = useState(false)
   const [selectedSpot, setSelectedSpot] = useState(spot)
   const [spotOptions, setSpotOptions] = useState([])
+  const [selectedWishes, setSelectedWishes] = useState([])
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState(null)
@@ -47,6 +57,12 @@ export default function CaptureModal({ onClose, onPosted, spot = null, allowSpot
       if (previewUrl) URL.revokeObjectURL(previewUrl)
     }
   }, [previewUrl])
+
+  // スポットが変わったら、前のスポット向けに選んだ「欲しいもの」をリセットする
+  useEffect(() => {
+    setSelectedWishes([])
+    setMessage('')
+  }, [selectedSpot?.id])
 
   // スポットを選び直せる場合のみ、選択肢一覧を取得する
   useEffect(() => {
@@ -139,6 +155,22 @@ export default function CaptureModal({ onClose, onPosted, spot = null, allowSpot
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
+  function toggleWish(key) {
+    setSelectedWishes((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    )
+  }
+
+  // 選んだカテゴリと自由記述をまとめて、DBのmessage列に保存する1本の文字列にする
+  function composeWishMessage() {
+    const labels = selectedWishes.map((key) => t(`capture.wish.${key}`))
+    const parts = []
+    if (labels.length > 0) parts.push(labels.join(', '))
+    const freeText = message.trim()
+    if (freeText) parts.push(freeText)
+    return parts.join(' / ')
+  }
+
   function selectCountry(c) {
     setSelectedCountry(c)
     setSearch(`${countryDisplayName(c, lang, c.name_ja)} (${c.name_en})`)
@@ -166,6 +198,7 @@ export default function CaptureModal({ onClose, onPosted, spot = null, allowSpot
 
     setSubmitting(true)
     try {
+      const wishMessage = selectedSpot ? composeWishMessage() || null : null
       const base = `${selectedCountry.code}/${Date.now()}-${Math.random()
         .toString(36)
         .slice(2)}`
@@ -207,7 +240,7 @@ export default function CaptureModal({ onClose, onPosted, spot = null, allowSpot
           p_country_code: selectedCountry.code,
           p_country_name: selectedCountry.name_ja,
           p_image_url: imageUrl,
-          p_message: selectedSpot ? message.trim() || null : null,
+          p_message: wishMessage,
           p_device_id: getDeviceId(),
           p_storage_path: path,
           p_spot_id: selectedSpot?.id || null,
@@ -239,7 +272,7 @@ export default function CaptureModal({ onClose, onPosted, spot = null, allowSpot
           image_url: imageUrl,
           thumbnail_url: thumbnailUrl || imageUrl,
           spot_id: selectedSpot?.id || null,
-          message: selectedSpot ? message.trim() || null : null,
+          message: wishMessage,
           created_at: created?.created_at || new Date().toISOString(),
         })
       onClose()
@@ -370,9 +403,28 @@ export default function CaptureModal({ onClose, onPosted, spot = null, allowSpot
 
         {selectedSpot && (
           <div className="mb-4">
-            <label className="mb-1 block text-sm text-inkmuted">
+            <label className="mb-2 block text-sm text-inkmuted">
               {t('capture.spotMessageLabel', { spot: selectedSpot.name })}
             </label>
+            <div className="mb-2 flex flex-wrap gap-2">
+              {WISH_CATEGORIES.map((key) => {
+                const active = selectedWishes.includes(key)
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => toggleWish(key)}
+                    className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
+                      active
+                        ? 'border-accent bg-accent text-white'
+                        : 'border-line bg-white text-ink'
+                    }`}
+                  >
+                    {WISH_ICONS[key]} {t(`capture.wish.${key}`)}
+                  </button>
+                )
+              })}
+            </div>
             <input
               type="text"
               value={message}
