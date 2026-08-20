@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { flagEmoji } from '../lib/flag.js'
 
-// コロニー運営担当者向けの一言一覧。
-// URLの ?key= に入ったコロニー別トークンが一致した場合のみ表示される。
-// このトークンでは「そのコロニーの一言を読む」ことしかできず、削除権限はない。
-export default function ColonyBoard({ slug, token }) {
+// スポット運営担当者向けの一言一覧。
+// URLの ?key= に入ったスポット別トークンが一致した場合のみ表示される。
+// このトークンでは「そのスポットの一言を読む」ことしかできず、削除権限はない。
+export default function SpotBoard({ slug, token }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState(null)
@@ -13,7 +13,7 @@ export default function ColonyBoard({ slug, token }) {
   async function load() {
     setLoading(true)
     setErrorMsg(null)
-    const { data, error } = await supabase.rpc('colony_board', {
+    const { data, error } = await supabase.rpc('spot_board', {
       p_slug: slug,
       p_token: token,
     })
@@ -22,8 +22,8 @@ export default function ColonyBoard({ slug, token }) {
       console.error(error)
       // 通信エラーを「権限がない」と誤表示しないよう、DBが返した理由を優先して判定する
       const reason = `${error.code || ''} ${error.message || ''}`
-      if (reason.includes('colony_not_found') || reason.includes('P0002')) {
-        setErrorMsg('コロニーが見つかりません。URLをご確認ください。')
+      if (reason.includes('spot_not_found') || reason.includes('P0002')) {
+        setErrorMsg('スポットが見つかりません。URLをご確認ください。')
       } else if (reason.includes('unauthorized') || reason.includes('28000')) {
         setErrorMsg(
           'このページを表示する権限がありません。URLの key が正しいかご確認ください。'
@@ -70,7 +70,7 @@ export default function ColonyBoard({ slug, token }) {
         <div className="mb-4 flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-accent">
-              Colony board
+              Spot board
             </p>
             <h1 className="text-lg font-bold text-ink">
               いただいた一言

@@ -100,13 +100,15 @@ export default function App() {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-surface">
-      <Globe
-        points={points}
-        loading={loading}
-        errorMsg={errorMsg}
-        onCountryClick={handleCountryClick}
-        focusRequest={focusRequest}
-      />
+      <div className="absolute inset-0">
+        <Globe
+          points={points}
+          loading={loading}
+          errorMsg={errorMsg}
+          onCountryClick={handleCountryClick}
+          focusRequest={focusRequest}
+        />
+      </div>
 
       <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center px-4 pt-4">
         <h1 className="pointer-events-auto rounded-full border border-line bg-white/90 px-4 py-1 text-sm font-bold tracking-wide text-ink shadow-sm backdrop-blur">

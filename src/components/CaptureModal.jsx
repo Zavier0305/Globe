@@ -8,9 +8,9 @@ import { resizeImageFile } from '../lib/resizeImage'
 
 const MESSAGE_MAX_LENGTH = 80
 
-// colony を渡すとコロニー投稿モードになり、「この場所への一言」欄が表示される。
-// メインの地球儀からの投稿(colony なし)は従来通り言葉なしのまま。
-export default function CaptureModal({ onClose, onPosted, colony = null }) {
+// spot を渡すとスポット投稿モードになり、「この場所への一言」欄が表示される。
+// メインの地球儀からの投稿(spot なし)は従来通り言葉なしのまま。
+export default function CaptureModal({ onClose, onPosted, spot = null }) {
   const [file, setFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
   const [cameraError, setCameraError] = useState(false)
@@ -166,10 +166,10 @@ export default function CaptureModal({ onClose, onPosted, colony = null }) {
           p_country_code: selectedCountry.code,
           p_country_name: selectedCountry.name_ja,
           p_image_url: imageUrl,
-          p_message: colony ? message.trim() || null : null,
+          p_message: spot ? message.trim() || null : null,
           p_device_id: getDeviceId(),
           p_storage_path: path,
-          p_colony_id: colony?.id || null,
+          p_spot_id: spot?.id || null,
         }
       )
       if (insertError) {
@@ -194,7 +194,7 @@ export default function CaptureModal({ onClose, onPosted, colony = null }) {
           country_code: selectedCountry.code,
           country_name: selectedCountry.name_ja,
           image_url: imageUrl,
-          message: colony ? message.trim() || null : null,
+          message: spot ? message.trim() || null : null,
           created_at: created?.created_at || new Date().toISOString(),
         })
       onClose()
@@ -212,8 +212,8 @@ export default function CaptureModal({ onClose, onPosted, colony = null }) {
         <div className="mb-3 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-ink">ポーズを投稿</h2>
-            {colony && (
-              <p className="text-xs text-accent">{colony.name}</p>
+            {spot && (
+              <p className="text-xs text-accent">{spot.name}</p>
             )}
           </div>
           <button
@@ -312,10 +312,10 @@ export default function CaptureModal({ onClose, onPosted, colony = null }) {
           )}
         </div>
 
-        {colony && (
+        {spot && (
           <div className="mb-4">
             <label className="mb-1 block text-sm text-inkmuted">
-              {colony.name}への一言(任意)
+              {spot.name}への一言(任意)
             </label>
             <input
               type="text"

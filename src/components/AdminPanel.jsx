@@ -28,10 +28,10 @@ export default function AdminPanel() {
   const [addProcessingFile, setAddProcessingFile] = useState(false)
   const addFileInputRef = useRef(null)
 
-  const [colonies, setColonies] = useState([])
-  const [newColonyName, setNewColonyName] = useState('')
-  const [colonySubmitting, setColonySubmitting] = useState(false)
-  const [colonyError, setColonyError] = useState(null)
+  const [spots, setSpots] = useState([])
+  const [newSpotName, setNewSpotName] = useState('')
+  const [spotSubmitting, setSpotSubmitting] = useState(false)
+  const [spotError, setSpotError] = useState(null)
 
   async function loadReported(pw) {
     setLoading(true)
@@ -67,15 +67,15 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (authed && tab === 'all' && allPoses.length === 0) loadAllPoses()
-    if (authed && tab === 'colonies' && colonies.length === 0) loadColonies()
+    if (authed && tab === 'spots' && spots.length === 0) loadSpots()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authed, tab])
 
-  async function loadColonies() {
-    const { data, error } = await supabase.rpc('admin_list_colonies', {
+  async function loadSpots() {
+    const { data, error } = await supabase.rpc('admin_list_spots', {
       p_password: password,
     })
-    if (!error) setColonies(data || [])
+    if (!error) setSpots(data || [])
   }
 
   // 名前からURL用のslugを作る(英数字以外はハイフンに寄せる)
@@ -87,39 +87,39 @@ export default function AdminPanel() {
       .replace(/^-+|-+$/g, '')
   }
 
-  async function handleCreateColony(e) {
+  async function handleCreateSpot(e) {
     e.preventDefault()
-    setColonyError(null)
-    const name = newColonyName.trim()
+    setSpotError(null)
+    const name = newSpotName.trim()
     if (!name) {
-      setColonyError('コロニー名を入力してください。')
+      setSpotError('スポット名を入力してください。')
       return
     }
     const slug = slugify(name)
     if (!slug) {
-      setColonyError('URLに使える文字(英数字)を含む名前にしてください。')
+      setSpotError('URLに使える文字(英数字)を含む名前にしてください。')
       return
     }
 
-    setColonySubmitting(true)
-    const { error } = await supabase.rpc('admin_create_colony', {
+    setSpotSubmitting(true)
+    const { error } = await supabase.rpc('admin_create_spot', {
       p_password: password,
       p_name: name,
       p_slug: slug,
     })
-    setColonySubmitting(false)
+    setSpotSubmitting(false)
     if (error) {
       console.error(error)
-      setColonyError(
+      setSpotError(
         error.message?.includes('duplicate')
           ? 'そのURL(slug)はすでに使われています。別の名前をお試しください。'
-          : 'コロニーの作成に失敗しました。'
+          : 'スポットの作成に失敗しました。'
       )
       return
     }
-    setNewColonyName('')
-    setActionMsg('コロニーを作成しました。')
-    await loadColonies()
+    setNewSpotName('')
+    setActionMsg('スポットを作成しました。')
+    await loadSpots()
   }
 
   function copyToClipboard(text, label) {
@@ -374,51 +374,51 @@ export default function AdminPanel() {
           </button>
           <button
             type="button"
-            onClick={() => setTab('colonies')}
+            onClick={() => setTab('spots')}
             className={`rounded-full px-3 py-1 text-sm font-semibold ${
-              tab === 'colonies' ? 'bg-accent text-white' : 'border border-line bg-white text-inkmuted'
+              tab === 'spots' ? 'bg-accent text-white' : 'border border-line bg-white text-inkmuted'
             }`}
           >
-            コロニー
+            スポット
           </button>
         </div>
 
         {actionMsg && <p className="mb-3 text-sm text-accent">{actionMsg}</p>}
 
-        {tab === 'colonies' && (
+        {tab === 'spots' && (
           <div className="flex flex-col gap-4">
             <form
-              onSubmit={handleCreateColony}
+              onSubmit={handleCreateSpot}
               className="flex flex-col gap-2 rounded-xl border border-line bg-white p-4 shadow-sm"
             >
-              <h2 className="font-bold text-ink">コロニーを作成</h2>
+              <h2 className="font-bold text-ink">スポットを作成</h2>
               <input
                 type="text"
-                value={newColonyName}
-                onChange={(e) => setNewColonyName(e.target.value)}
+                value={newSpotName}
+                onChange={(e) => setNewSpotName(e.target.value)}
                 placeholder="例: Stanford Shopping Center"
                 className="w-full rounded-lg border border-line bg-white px-3 py-2 text-ink placeholder:text-inkmuted"
               />
-              {newColonyName.trim() && (
+              {newSpotName.trim() && (
                 <p className="text-xs text-inkmuted">
-                  URL: /colony/{slugify(newColonyName)}
+                  URL: /spot/{slugify(newSpotName)}
                 </p>
               )}
-              {colonyError && <p className="text-sm text-red-600">{colonyError}</p>}
+              {spotError && <p className="text-sm text-red-600">{spotError}</p>}
               <button
                 type="submit"
-                disabled={colonySubmitting}
+                disabled={spotSubmitting}
                 className="rounded-lg bg-accent py-2 text-sm font-bold text-white disabled:opacity-50"
               >
-                {colonySubmitting ? '作成中...' : '作成する'}
+                {spotSubmitting ? '作成中...' : '作成する'}
               </button>
             </form>
 
-            {colonies.length === 0 ? (
-              <p className="text-sm text-inkmuted">コロニーはまだありません。</p>
+            {spots.length === 0 ? (
+              <p className="text-sm text-inkmuted">スポットはまだありません。</p>
             ) : (
-              colonies.map((c) => {
-                const postUrl = `${window.location.origin}/colony/${c.slug}`
+              spots.map((c) => {
+                const postUrl = `${window.location.origin}/spot/${c.slug}`
                 const boardUrl = `${postUrl}/board?key=${c.board_token}`
                 return (
                   <div
@@ -464,14 +464,14 @@ export default function AdminPanel() {
           </div>
         )}
 
-        {tab !== 'colonies' && list.length === 0 && (
+        {tab !== 'spots' && list.length === 0 && (
           <p className="text-sm text-inkmuted">
             {tab === 'reported' ? '通報された投稿はありません。' : '投稿がありません。'}
           </p>
         )}
 
         <div className="flex flex-col gap-3">
-          {(tab === 'colonies' ? [] : list).map((p) => {
+          {(tab === 'spots' ? [] : list).map((p) => {
             const id = tab === 'reported' ? p.pose_id : p.id
             return (
               <div key={id} className="flex gap-3 rounded-xl border border-line bg-white p-3 shadow-sm">

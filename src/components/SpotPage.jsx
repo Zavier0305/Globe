@@ -1,28 +1,45 @@
 import { useEffect, useState } from 'react'
 import CaptureModal from './CaptureModal.jsx'
-import { fetchColonyBySlug, fetchColonyPoses } from '../lib/colonies.js'
+import Globe from './Globe.jsx'
+import PinDetail from './PinDetail.jsx'
+import CountryGallery from './CountryGallery.jsx'
+import usePoses from '../lib/usePoses.js'
+import { fetchSpotBySlug, fetchSpotPoses } from '../lib/spots.js'
 import { flagEmoji } from '../lib/flag.js'
 
-export default function ColonyPage({ slug }) {
-  const [colony, setColony] = useState(null)
+export default function SpotPage({ slug }) {
+  const [spot, setSpot] = useState(null)
   const [poses, setPoses] = useState([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [showCapture, setShowCapture] = useState(false)
   const [justPosted, setJustPosted] = useState(false)
 
+  // メインと同じ地球儀(全投稿)をこのページでも表示する
+  const { points, loading: globeLoading, addOwnPose } = usePoses()
+  const [selectedPose, setSelectedPose] = useState(null)
+  const [selectedCountryPoint, setSelectedCountryPoint] = useState(null)
+
+  function handleCountryClick(countryPoint) {
+    if (countryPoint.poses.length === 1) {
+      setSelectedPose(countryPoint.poses[0])
+    } else {
+      setSelectedCountryPoint(countryPoint)
+    }
+  }
+
   useEffect(() => {
     let mounted = true
     async function load() {
-      const c = await fetchColonyBySlug(slug)
+      const c = await fetchSpotBySlug(slug)
       if (!mounted) return
       if (!c) {
         setNotFound(true)
         setLoading(false)
         return
       }
-      setColony(c)
-      setPoses(await fetchColonyPoses(c.id))
+      setSpot(c)
+      setPoses(await fetchSpotPoses(c.id))
       setLoading(false)
     }
     load()
@@ -33,6 +50,7 @@ export default function ColonyPage({ slug }) {
 
   function handlePosted(newPose) {
     setPoses((prev) => [newPose, ...prev])
+    addOwnPose(newPose) // 同じページ内の地球儀にも即座に反映する
     setJustPosted(true)
     setTimeout(() => setJustPosted(false), 6000)
   }
@@ -48,7 +66,7 @@ export default function ColonyPage({ slug }) {
   if (notFound) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-surface px-6 text-center">
-        <p className="text-lg font-bold text-ink">コロニーが見つかりません</p>
+        <p className="text-lg font-bold text-ink">スポットが見つかりません</p>
         <p className="text-sm text-inkmuted">
           URLが正しいかご確認ください。
         </p>
@@ -64,17 +82,29 @@ export default function ColonyPage({ slug }) {
       <header className="border-b border-line bg-white px-4 py-5">
         <div className="mx-auto max-w-2xl">
           <p className="text-xs font-semibold uppercase tracking-wider text-accent">
-            Colony
+            Spot
           </p>
-          <h1 className="mt-1 text-xl font-bold text-ink">{colony.name}</h1>
+          <h1 className="mt-1 text-xl font-bold text-ink">{spot.name}</h1>
           <p className="mt-2 text-sm text-inkmuted">
             ここでポーズを撮って、この場所への一言を残しましょう。投稿は世界の地球儀にも表示されます。
           </p>
-          <a href="/" className="mt-2 inline-block text-sm text-accent underline">
-            地球儀を見る →
-          </a>
         </div>
       </header>
+
+      <section className="relative h-[52vh] min-h-[300px] w-full border-b border-line bg-surface">
+        <Globe
+          points={points}
+          loading={globeLoading}
+          errorMsg={null}
+          onCountryClick={handleCountryClick}
+        />
+        <a
+          href="/"
+          className="absolute bottom-3 right-3 rounded-full border border-line bg-white/90 px-3 py-1 text-xs font-semibold text-accent shadow-sm backdrop-blur"
+        >
+          全画面で見る →
+        </a>
+      </section>
 
       <main className="mx-auto max-w-2xl px-4 py-5">
         {justPosted && (
@@ -144,10 +174,25 @@ export default function ColonyPage({ slug }) {
 
       {showCapture && (
         <CaptureModal
-          colony={colony}
+          spot={spot}
           onClose={() => setShowCapture(false)}
           onPosted={handlePosted}
         />
+      )}
+
+      {selectedCountryPoint && (
+        <CountryGallery
+          countryPoint={selectedCountryPoint}
+          onClose={() => setSelectedCountryPoint(null)}
+          onSelectPose={(pose) => {
+            setSelectedCountryPoint(null)
+            setSelectedPose(pose)
+          }}
+        />
+      )}
+
+      {selectedPose && (
+        <PinDetail pose={selectedPose} onClose={() => setSelectedPose(null)} />
       )}
     </div>
   )

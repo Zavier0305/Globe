@@ -6,6 +6,7 @@ const DEFAULT_VIEW = { lat: 20, lng: 20, altitude: 2.2 }
 const IDLE_RETURN_MS = 20 * 1000
 const OVERVIEW_HOLD_MS = 8 * 1000
 const TOUR_HOLD_MS = 4 * 1000
+const MAX_ARCS = 24
 
 function aggregateByCountry(points) {
   const map = new Map()
@@ -15,6 +16,7 @@ function aggregateByCountry(points) {
       existing.poses.push(p)
       if (p.created_at > existing.latest_created_at) {
         existing.latest_created_at = p.created_at
+        existing.image_url = p.image_url
       }
     } else {
       map.set(p.country_code, {
@@ -23,11 +25,58 @@ function aggregateByCountry(points) {
         lat: p.lat,
         lng: p.lng,
         poses: [p],
+        image_url: p.image_url,
         latest_created_at: p.created_at,
       })
     }
   }
   return Array.from(map.values())
+}
+
+// 投稿された順に国と国を弧でつなぎ、「世界に広がっていった軌跡」を描く
+function buildArcs(points) {
+  const ordered = [...points].sort(
+    (a, b) => new Date(a.created_at) - new Date(b.created_at)
+  )
+  const arcs = []
+  for (let i = 1; i < ordered.length; i++) {
+    const from = ordered[i - 1]
+    const to = ordered[i]
+    if (from.country_code === to.country_code) continue
+    arcs.push({
+      startLat: from.lat,
+      startLng: from.lng,
+      endLat: to.lat,
+      endLng: to.lng,
+    })
+  }
+  return arcs.slice(-MAX_ARCS)
+}
+
+// 地球儀に直接浮かべる写真パネル(DOM要素なのでCSSでホバー演出できる)
+function createPhotoPanel(d, onClick) {
+  const el = document.createElement('div')
+  el.className = 'globe-photo'
+  el.title = `${d.country_name}(${d.poses.length}件)`
+
+  const img = document.createElement('img')
+  img.src = d.image_url
+  img.alt = d.country_name
+  img.loading = 'lazy'
+  el.appendChild(img)
+
+  if (d.poses.length > 1) {
+    const badge = document.createElement('span')
+    badge.className = 'globe-photo-badge'
+    badge.textContent = d.poses.length
+    el.appendChild(badge)
+  }
+
+  el.addEventListener('click', (e) => {
+    e.stopPropagation()
+    onClick(d)
+  })
+  return el
 }
 
 export default function Globe({
@@ -36,28 +85,41 @@ export default function Globe({
   errorMsg,
   onCountryClick,
   focusRequest,
+  showOverlays = true,
 }) {
   const globeRef = useRef()
+  const containerRef = useRef(null)
   const [now, setNow] = useState(Date.now())
-  const [size, setSize] = useState({
-    width: window.innerWidth,
-    height: window.innerHeight,
-  })
+  const [size, setSize] = useState({ width: 0, height: 0 })
   const lastInteractionRef = useRef(Date.now())
   const idleReturnedRef = useRef(true)
-  const tourStateRef = useRef({ phase: 'overview', phaseStartedAt: Date.now(), tourIndex: 0 })
+  const tourStateRef = useRef({
+    phase: 'overview',
+    phaseStartedAt: Date.now(),
+    tourIndex: 0,
+  })
   const countryPointsRef = useRef([])
+  const onCountryClickRef = useRef(onCountryClick)
+
+  useEffect(() => {
+    onCountryClickRef.current = onCountryClick
+  }, [onCountryClick])
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
   }, [])
 
+  // 親要素のサイズに追従する(メイン画面では全画面、スポットページでは一部だけ使う)
   useEffect(() => {
-    const onResize = () =>
-      setSize({ width: window.innerWidth, height: window.innerHeight })
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
+    const el = containerRef.current
+    if (!el) return
+    const update = () =>
+      setSize({ width: el.clientWidth, height: el.clientHeight })
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
   }, [])
 
   useEffect(() => {
@@ -67,6 +129,13 @@ export default function Globe({
     if (!controls) return
     controls.autoRotate = true
     controls.autoRotateSpeed = 0.4
+    // 慣性を効かせて、指を離したあとにすっと止まる操作感にする
+    controls.enableDamping = true
+    controls.dampingFactor = 0.08
+    controls.rotateSpeed = 0.6
+    controls.zoomSpeed = 0.8
+    controls.minDistance = 160
+    controls.maxDistance = 600
 
     const markInteraction = () => {
       lastInteractionRef.current = Date.now()
@@ -77,46 +146,64 @@ export default function Globe({
     return () => controls.removeEventListener('start', markInteraction)
   }, [])
 
-  // 一定時間操作がなければ、全体ビュー(自動回転)と各国ピンの自動巡回を交互に行う
-  // (プロジェクター展示で誰も触っていない間、勝手に紹介してくれる「自動プレゼンモード」)
+  // 一定時間操作がなければ、全体ビュー(自動回転)と各国の自動巡回を交互に行う
   useEffect(() => {
     const id = setInterval(() => {
       if (!globeRef.current) return
       const controls = globeRef.current.controls()
       const idleFor = Date.now() - lastInteractionRef.current
-
       if (idleFor <= IDLE_RETURN_MS) return
 
       if (!idleReturnedRef.current) {
         idleReturnedRef.current = true
         globeRef.current.pointOfView(DEFAULT_VIEW, 1500)
         if (controls) controls.autoRotate = true
-        tourStateRef.current = { phase: 'overview', phaseStartedAt: Date.now(), tourIndex: 0 }
+        tourStateRef.current = {
+          phase: 'overview',
+          phaseStartedAt: Date.now(),
+          tourIndex: 0,
+        }
         return
       }
 
       const state = tourStateRef.current
       const elapsed = Date.now() - state.phaseStartedAt
-      const tourTargets = countryPointsRef.current
+      const targets = countryPointsRef.current
 
       if (state.phase === 'overview') {
-        if (elapsed > OVERVIEW_HOLD_MS && tourTargets.length > 0) {
+        if (elapsed > OVERVIEW_HOLD_MS && targets.length > 0) {
           if (controls) controls.autoRotate = false
-          const target = tourTargets[0]
-          globeRef.current.pointOfView({ lat: target.lat, lng: target.lng, altitude: 1.4 }, 1200)
-          tourStateRef.current = { phase: 'touring', phaseStartedAt: Date.now(), tourIndex: 0 }
+          const t = targets[0]
+          globeRef.current.pointOfView(
+            { lat: t.lat, lng: t.lng, altitude: 1.3 },
+            1800
+          )
+          tourStateRef.current = {
+            phase: 'touring',
+            phaseStartedAt: Date.now(),
+            tourIndex: 0,
+          }
         }
-      } else if (state.phase === 'touring') {
-        if (elapsed > TOUR_HOLD_MS) {
-          const nextIndex = state.tourIndex + 1
-          if (nextIndex >= tourTargets.length) {
-            if (controls) controls.autoRotate = true
-            globeRef.current.pointOfView(DEFAULT_VIEW, 1500)
-            tourStateRef.current = { phase: 'overview', phaseStartedAt: Date.now(), tourIndex: 0 }
-          } else {
-            const target = tourTargets[nextIndex]
-            globeRef.current.pointOfView({ lat: target.lat, lng: target.lng, altitude: 1.4 }, 1200)
-            tourStateRef.current = { phase: 'touring', phaseStartedAt: Date.now(), tourIndex: nextIndex }
+      } else if (state.phase === 'touring' && elapsed > TOUR_HOLD_MS) {
+        const next = state.tourIndex + 1
+        if (next >= targets.length) {
+          if (controls) controls.autoRotate = true
+          globeRef.current.pointOfView(DEFAULT_VIEW, 1800)
+          tourStateRef.current = {
+            phase: 'overview',
+            phaseStartedAt: Date.now(),
+            tourIndex: 0,
+          }
+        } else {
+          const t = targets[next]
+          globeRef.current.pointOfView(
+            { lat: t.lat, lng: t.lng, altitude: 1.3 },
+            1800
+          )
+          tourStateRef.current = {
+            phase: 'touring',
+            phaseStartedAt: Date.now(),
+            tourIndex: next,
           }
         }
       }
@@ -130,6 +217,7 @@ export default function Globe({
   )
 
   const countryPoints = useMemo(() => aggregateByCountry(points), [points])
+  const arcs = useMemo(() => buildArcs(points), [points])
   const newCountryPoints = countryPoints.filter(isNew)
 
   useEffect(() => {
@@ -139,8 +227,8 @@ export default function Globe({
   useEffect(() => {
     if (!globeRef.current || !focusRequest) return
     globeRef.current.pointOfView(
-      { lat: focusRequest.lat, lng: focusRequest.lng, altitude: 1.4 },
-      1200
+      { lat: focusRequest.lat, lng: focusRequest.lng, altitude: 1.3 },
+      1400
     )
     lastInteractionRef.current = Date.now()
     idleReturnedRef.current = false
@@ -149,38 +237,56 @@ export default function Globe({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusRequest])
 
-  return (
-    <>
-      <GlobeGL
-        ref={globeRef}
-        width={size.width}
-        height={size.height}
-        backgroundColor="#ffffff"
-        globeImageUrl="/textures/earth-blue-marble.jpg"
-        bumpImageUrl="/textures/earth-topology.png"
-        atmosphereColor="#2563eb"
-        atmosphereAltitude={0.18}
-        pointsData={countryPoints}
-        pointLat="lat"
-        pointLng="lng"
-        pointAltitude={(p) => (isNew(p) ? 0.12 : 0.02)}
-        pointRadius={(p) => Math.min(0.35 + p.poses.length * 0.08, 1.1)}
-        pointColor={(p) => (isNew(p) ? '#1d4ed8' : '#2563eb')}
-        pointLabel={(p) =>
-          `<div style="color:#111827;font-weight:bold;background:#fff;padding:2px 6px;border-radius:4px">${p.country_name}(${p.poses.length}件)</div>`
-        }
-        pointsMerge={false}
-        onPointClick={(p) => onCountryClick && onCountryClick(p)}
-        ringsData={newCountryPoints}
-        ringLat="lat"
-        ringLng="lng"
-        ringColor={() => '#2563eb'}
-        ringMaxRadius={4}
-        ringPropagationSpeed={2.5}
-        ringRepeatPeriod={800}
-      />
+  const handlePanelClick = useCallback((d) => {
+    onCountryClickRef.current && onCountryClickRef.current(d)
+  }, [])
 
-      {loading && (
+  return (
+    <div ref={containerRef} className="relative h-full w-full">
+      {size.width > 0 && (
+        <GlobeGL
+          ref={globeRef}
+          width={size.width}
+          height={size.height}
+          backgroundColor="rgba(0,0,0,0)"
+          globeImageUrl="/textures/earth-blue-marble.jpg"
+          bumpImageUrl="/textures/earth-topology.png"
+          atmosphereColor="#2563eb"
+          atmosphereAltitude={0.22}
+          /* 投稿が広がっていった軌跡を描く弧 */
+          arcsData={arcs}
+          arcColor={() => ['rgba(37,99,235,0.05)', 'rgba(29,78,216,0.95)']}
+          arcStroke={0.6}
+          arcAltitudeAutoScale={0.45}
+          arcDashLength={0.5}
+          arcDashGap={0.25}
+          arcDashAnimateTime={2600}
+          /* 国ごとの写真パネル */
+          htmlElementsData={countryPoints}
+          htmlLat="lat"
+          htmlLng="lng"
+          htmlAltitude={(d) => (isNew(d) ? 0.14 : 0.06)}
+          htmlElement={(d) => createPhotoPanel(d, handlePanelClick)}
+          /* 足元の点で位置を明確にする */
+          pointsData={countryPoints}
+          pointLat="lat"
+          pointLng="lng"
+          pointAltitude={0.005}
+          pointRadius={(d) => Math.min(0.22 + d.poses.length * 0.05, 0.7)}
+          pointColor={(d) => (isNew(d) ? '#1d4ed8' : '#2563eb')}
+          pointsMerge={false}
+          /* 新着国から広がる波紋 */
+          ringsData={newCountryPoints}
+          ringLat="lat"
+          ringLng="lng"
+          ringColor={() => (t) => `rgba(29,78,216,${1 - t})`}
+          ringMaxRadius={5}
+          ringPropagationSpeed={2.5}
+          ringRepeatPeriod={700}
+        />
+      )}
+
+      {showOverlays && loading && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="rounded-full border border-line bg-white/90 px-4 py-2 text-sm text-accent shadow-sm backdrop-blur">
             読み込み中...
@@ -188,7 +294,7 @@ export default function Globe({
         </div>
       )}
 
-      {!loading && !errorMsg && points.length === 0 && (
+      {showOverlays && !loading && !errorMsg && points.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-8">
           <p className="rounded-xl border border-line bg-white/90 px-4 py-3 text-center text-sm text-inkmuted shadow-sm backdrop-blur">
             まだ投稿がありません。
@@ -198,13 +304,13 @@ export default function Globe({
         </div>
       )}
 
-      {errorMsg && (
+      {showOverlays && errorMsg && (
         <div className="pointer-events-none absolute inset-x-0 top-24 flex justify-center px-4">
           <p className="rounded-full bg-accent px-4 py-2 text-center text-xs font-semibold text-white shadow-lg">
             {errorMsg}
           </p>
         </div>
       )}
-    </>
+    </div>
   )
 }
