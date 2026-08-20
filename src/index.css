@@ -23,6 +23,9 @@ body {
   transform: translate(-50%, -50%);
   transition: transform 180ms ease, filter 180ms ease;
   filter: drop-shadow(0 4px 10px rgba(15, 23, 42, 0.35));
+  /* react-globe.gl のHTMLレイヤーは pointer-events: none なので、
+     パネル側で明示的に有効化しないとタップが効かない */
+  pointer-events: auto;
 }
 
 .globe-photo img {

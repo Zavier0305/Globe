@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { supabase, POSES_TABLE, POSE_IMAGES_BUCKET } from '../lib/supabaseClient'
+import { supabase, POSE_IMAGES_BUCKET } from '../lib/supabaseClient'
 import { adminDeletePose } from '../lib/deletePose'
 import { COUNTRIES } from '../lib/countries'
 import { resizeImageFile } from '../lib/resizeImage'
@@ -33,6 +33,12 @@ export default function AdminPanel() {
   const [spotSubmitting, setSpotSubmitting] = useState(false)
   const [spotError, setSpotError] = useState(null)
 
+  // 投稿の所属スポット・一言の編集
+  const [editingId, setEditingId] = useState(null)
+  const [editSpotId, setEditSpotId] = useState('')
+  const [editMessage, setEditMessage] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+
   async function loadReported(pw) {
     setLoading(true)
     setLoginError(null)
@@ -51,12 +57,12 @@ export default function AdminPanel() {
     setReportedPoses(data || [])
   }
 
+  // 所属スポット名も一緒に取得するため、専用RPCを使う
   async function loadAllPoses() {
-    const { data, error } = await supabase
-      .from(POSES_TABLE)
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(ALL_POSES_LIMIT)
+    const { data, error } = await supabase.rpc('admin_list_poses', {
+      p_password: password,
+      p_limit: ALL_POSES_LIMIT,
+    })
     if (!error) setAllPoses(data || [])
   }
 
@@ -67,7 +73,7 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (authed && tab === 'all' && allPoses.length === 0) loadAllPoses()
-    if (authed && tab === 'spots' && spots.length === 0) loadSpots()
+    if (authed && spots.length === 0) loadSpots()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authed, tab])
 
@@ -120,6 +126,50 @@ export default function AdminPanel() {
     setNewSpotName('')
     setActionMsg('スポットを作成しました。')
     await loadSpots()
+  }
+
+  function startEdit(pose) {
+    setEditingId(pose.id)
+    setEditSpotId(pose.spot_id || '')
+    setEditMessage(pose.message || '')
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setEditSpotId('')
+    setEditMessage('')
+  }
+
+  async function saveEdit(poseId) {
+    setEditSaving(true)
+    const { data, error } = await supabase.rpc('admin_update_pose', {
+      p_password: password,
+      p_id: poseId,
+      p_spot_id: editSpotId || null,
+      p_message: editMessage,
+    })
+    setEditSaving(false)
+    if (error || !data) {
+      console.error(error)
+      setActionMsg('更新に失敗しました。')
+      return
+    }
+    const spot = spots.find((s) => s.id === editSpotId)
+    const nextMessage = editMessage.trim() || null
+    setAllPoses((prev) =>
+      prev.map((p) =>
+        p.id === poseId
+          ? {
+              ...p,
+              spot_id: editSpotId || null,
+              spot_name: spot ? spot.name : null,
+              message: nextMessage,
+            }
+          : p
+      )
+    )
+    cancelEdit()
+    setActionMsg('更新しました。')
   }
 
   function copyToClipboard(text, label) {
@@ -480,11 +530,27 @@ export default function AdminPanel() {
                   alt={p.country_name}
                   className="h-20 w-20 shrink-0 rounded-lg object-cover"
                 />
-                <div className="flex-1">
+                <div className="min-w-0 flex-1">
                   <p className="font-bold text-ink">{p.country_name}</p>
                   <p className="text-xs text-inkmuted">
                     {new Date(p.created_at).toLocaleString('ja-JP')}
                   </p>
+
+                  {tab === 'all' && (
+                    <p className="mt-1 text-xs">
+                      <span className="text-inkmuted">スポット: </span>
+                      {p.spot_name ? (
+                        <span className="font-semibold text-accent">{p.spot_name}</span>
+                      ) : (
+                        <span className="text-inkmuted">未所属(自由投稿)</span>
+                      )}
+                    </p>
+                  )}
+
+                  {tab === 'all' && p.message && editingId !== id && (
+                    <p className="mt-1 break-words text-sm text-ink">「{p.message}」</p>
+                  )}
+
                   {tab === 'reported' ? (
                     <p className="text-xs font-semibold text-red-600">
                       通報 {p.report_count}件
@@ -496,14 +562,74 @@ export default function AdminPanel() {
                       </p>
                     )
                   )}
+
+                  {tab === 'all' && editingId === id && (
+                    <div className="mt-2 flex flex-col gap-2 rounded-lg bg-surfacemuted p-2">
+                      <label className="text-xs font-semibold text-inkmuted">
+                        所属スポット
+                        <select
+                          value={editSpotId}
+                          onChange={(e) => setEditSpotId(e.target.value)}
+                          className="mt-1 w-full rounded border border-line bg-white px-2 py-1 text-sm font-normal text-ink"
+                        >
+                          <option value="">未所属(自由投稿)</option>
+                          {spots.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-xs font-semibold text-inkmuted">
+                        一言
+                        <input
+                          type="text"
+                          value={editMessage}
+                          maxLength={80}
+                          onChange={(e) => setEditMessage(e.target.value)}
+                          placeholder="(空にすると一言を削除します)"
+                          className="mt-1 w-full rounded border border-line bg-white px-2 py-1 text-sm font-normal text-ink placeholder:text-inkmuted"
+                        />
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={editSaving}
+                          onClick={() => saveEdit(id)}
+                          className="rounded bg-accent px-3 py-1 text-xs font-bold text-white disabled:opacity-50"
+                        >
+                          {editSaving ? '保存中...' : '保存'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEdit}
+                          className="rounded border border-line bg-white px-3 py-1 text-xs text-ink"
+                        >
+                          キャンセル
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(id, tab)}
-                  className="h-fit shrink-0 rounded-lg bg-red-600 px-3 py-1 text-sm font-semibold text-white"
-                >
-                  削除
-                </button>
+
+                <div className="flex h-fit shrink-0 flex-col gap-1">
+                  {tab === 'all' && editingId !== id && (
+                    <button
+                      type="button"
+                      onClick={() => startEdit(p)}
+                      className="rounded-lg border border-line bg-white px-3 py-1 text-sm font-semibold text-accent"
+                    >
+                      編集
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(id, tab)}
+                    className="rounded-lg bg-red-600 px-3 py-1 text-sm font-semibold text-white"
+                  >
+                    削除
+                  </button>
+                </div>
               </div>
             )
           })}

@@ -6,7 +6,6 @@ const DEFAULT_VIEW = { lat: 20, lng: 20, altitude: 2.2 }
 const IDLE_RETURN_MS = 20 * 1000
 const OVERVIEW_HOLD_MS = 8 * 1000
 const TOUR_HOLD_MS = 4 * 1000
-const MAX_ARCS = 24
 
 function aggregateByCountry(points) {
   const map = new Map()
@@ -31,26 +30,6 @@ function aggregateByCountry(points) {
     }
   }
   return Array.from(map.values())
-}
-
-// 投稿された順に国と国を弧でつなぎ、「世界に広がっていった軌跡」を描く
-function buildArcs(points) {
-  const ordered = [...points].sort(
-    (a, b) => new Date(a.created_at) - new Date(b.created_at)
-  )
-  const arcs = []
-  for (let i = 1; i < ordered.length; i++) {
-    const from = ordered[i - 1]
-    const to = ordered[i]
-    if (from.country_code === to.country_code) continue
-    arcs.push({
-      startLat: from.lat,
-      startLng: from.lng,
-      endLat: to.lat,
-      endLng: to.lng,
-    })
-  }
-  return arcs.slice(-MAX_ARCS)
 }
 
 // 地球儀に直接浮かべる写真パネル(DOM要素なのでCSSでホバー演出できる)
@@ -217,7 +196,6 @@ export default function Globe({
   )
 
   const countryPoints = useMemo(() => aggregateByCountry(points), [points])
-  const arcs = useMemo(() => buildArcs(points), [points])
   const newCountryPoints = countryPoints.filter(isNew)
 
   useEffect(() => {
@@ -253,14 +231,6 @@ export default function Globe({
           bumpImageUrl="/textures/earth-topology.png"
           atmosphereColor="#2563eb"
           atmosphereAltitude={0.22}
-          /* 投稿が広がっていった軌跡を描く弧 */
-          arcsData={arcs}
-          arcColor={() => ['rgba(37,99,235,0.05)', 'rgba(29,78,216,0.95)']}
-          arcStroke={0.6}
-          arcAltitudeAutoScale={0.45}
-          arcDashLength={0.5}
-          arcDashGap={0.25}
-          arcDashAnimateTime={2600}
           /* 国ごとの写真パネル */
           htmlElementsData={countryPoints}
           htmlLat="lat"
