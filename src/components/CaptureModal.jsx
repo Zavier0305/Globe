@@ -6,13 +6,18 @@ import { playPostSuccessSound } from '../lib/sound'
 import { getDeviceId } from '../lib/deviceId'
 import { resizeImageFile } from '../lib/resizeImage'
 
-export default function CaptureModal({ onClose, onPosted }) {
+const MESSAGE_MAX_LENGTH = 80
+
+// colony を渡すとコロニー投稿モードになり、「この場所への一言」欄が表示される。
+// メインの地球儀からの投稿(colony なし)は従来通り言葉なしのまま。
+export default function CaptureModal({ onClose, onPosted, colony = null }) {
   const [file, setFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
   const [cameraError, setCameraError] = useState(false)
   const [search, setSearch] = useState('')
   const [selectedCountry, setSelectedCountry] = useState(null)
   const [showList, setShowList] = useState(false)
+  const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState(null)
   const [geoHint, setGeoHint] = useState(null)
@@ -161,8 +166,10 @@ export default function CaptureModal({ onClose, onPosted }) {
           p_country_code: selectedCountry.code,
           p_country_name: selectedCountry.name_ja,
           p_image_url: imageUrl,
+          p_message: colony ? message.trim() || null : null,
           p_device_id: getDeviceId(),
           p_storage_path: path,
+          p_colony_id: colony?.id || null,
         }
       )
       if (insertError) {
@@ -187,6 +194,7 @@ export default function CaptureModal({ onClose, onPosted }) {
           country_code: selectedCountry.code,
           country_name: selectedCountry.name_ja,
           image_url: imageUrl,
+          message: colony ? message.trim() || null : null,
           created_at: created?.created_at || new Date().toISOString(),
         })
       onClose()
@@ -202,7 +210,12 @@ export default function CaptureModal({ onClose, onPosted }) {
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
       <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-4 shadow-2xl sm:rounded-2xl">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-ink">ポーズを投稿</h2>
+          <div>
+            <h2 className="text-lg font-bold text-ink">ポーズを投稿</h2>
+            {colony && (
+              <p className="text-xs text-accent">{colony.name}</p>
+            )}
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -298,6 +311,25 @@ export default function CaptureModal({ onClose, onPosted }) {
             </ul>
           )}
         </div>
+
+        {colony && (
+          <div className="mb-4">
+            <label className="mb-1 block text-sm text-inkmuted">
+              {colony.name}への一言(任意)
+            </label>
+            <input
+              type="text"
+              value={message}
+              maxLength={MESSAGE_MAX_LENGTH}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="例: 最高の一日でした!"
+              className="w-full rounded-lg border border-line bg-white px-3 py-2 text-ink placeholder:text-inkmuted"
+            />
+            <p className="mt-1 text-right text-xs text-inkmuted">
+              {message.length}/{MESSAGE_MAX_LENGTH}
+            </p>
+          </div>
+        )}
 
         <label className="mb-3 flex items-start gap-2 text-xs text-inkmuted">
           <input

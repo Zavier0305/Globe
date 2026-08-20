@@ -28,6 +28,11 @@ export default function AdminPanel() {
   const [addProcessingFile, setAddProcessingFile] = useState(false)
   const addFileInputRef = useRef(null)
 
+  const [colonies, setColonies] = useState([])
+  const [newColonyName, setNewColonyName] = useState('')
+  const [colonySubmitting, setColonySubmitting] = useState(false)
+  const [colonyError, setColonyError] = useState(null)
+
   async function loadReported(pw) {
     setLoading(true)
     setLoginError(null)
@@ -62,8 +67,67 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (authed && tab === 'all' && allPoses.length === 0) loadAllPoses()
+    if (authed && tab === 'colonies' && colonies.length === 0) loadColonies()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authed, tab])
+
+  async function loadColonies() {
+    const { data, error } = await supabase.rpc('admin_list_colonies', {
+      p_password: password,
+    })
+    if (!error) setColonies(data || [])
+  }
+
+  // 名前からURL用のslugを作る(英数字以外はハイフンに寄せる)
+  function slugify(name) {
+    return name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+  }
+
+  async function handleCreateColony(e) {
+    e.preventDefault()
+    setColonyError(null)
+    const name = newColonyName.trim()
+    if (!name) {
+      setColonyError('コロニー名を入力してください。')
+      return
+    }
+    const slug = slugify(name)
+    if (!slug) {
+      setColonyError('URLに使える文字(英数字)を含む名前にしてください。')
+      return
+    }
+
+    setColonySubmitting(true)
+    const { error } = await supabase.rpc('admin_create_colony', {
+      p_password: password,
+      p_name: name,
+      p_slug: slug,
+    })
+    setColonySubmitting(false)
+    if (error) {
+      console.error(error)
+      setColonyError(
+        error.message?.includes('duplicate')
+          ? 'そのURL(slug)はすでに使われています。別の名前をお試しください。'
+          : 'コロニーの作成に失敗しました。'
+      )
+      return
+    }
+    setNewColonyName('')
+    setActionMsg('コロニーを作成しました。')
+    await loadColonies()
+  }
+
+  function copyToClipboard(text, label) {
+    navigator.clipboard
+      ?.writeText(text)
+      .then(() => setActionMsg(`${label}をコピーしました。`))
+      .catch(() => setActionMsg('コピーに失敗しました。手動で選択してください。'))
+  }
 
   async function handleDelete(poseId, fromTab) {
     const confirmed = window.confirm('この投稿を削除しますか?元に戻せません。')
@@ -308,18 +372,106 @@ export default function AdminPanel() {
           >
             全投稿(最新{ALL_POSES_LIMIT}件)
           </button>
+          <button
+            type="button"
+            onClick={() => setTab('colonies')}
+            className={`rounded-full px-3 py-1 text-sm font-semibold ${
+              tab === 'colonies' ? 'bg-accent text-white' : 'border border-line bg-white text-inkmuted'
+            }`}
+          >
+            コロニー
+          </button>
         </div>
 
         {actionMsg && <p className="mb-3 text-sm text-accent">{actionMsg}</p>}
 
-        {list.length === 0 && (
+        {tab === 'colonies' && (
+          <div className="flex flex-col gap-4">
+            <form
+              onSubmit={handleCreateColony}
+              className="flex flex-col gap-2 rounded-xl border border-line bg-white p-4 shadow-sm"
+            >
+              <h2 className="font-bold text-ink">コロニーを作成</h2>
+              <input
+                type="text"
+                value={newColonyName}
+                onChange={(e) => setNewColonyName(e.target.value)}
+                placeholder="例: Stanford Shopping Center"
+                className="w-full rounded-lg border border-line bg-white px-3 py-2 text-ink placeholder:text-inkmuted"
+              />
+              {newColonyName.trim() && (
+                <p className="text-xs text-inkmuted">
+                  URL: /colony/{slugify(newColonyName)}
+                </p>
+              )}
+              {colonyError && <p className="text-sm text-red-600">{colonyError}</p>}
+              <button
+                type="submit"
+                disabled={colonySubmitting}
+                className="rounded-lg bg-accent py-2 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {colonySubmitting ? '作成中...' : '作成する'}
+              </button>
+            </form>
+
+            {colonies.length === 0 ? (
+              <p className="text-sm text-inkmuted">コロニーはまだありません。</p>
+            ) : (
+              colonies.map((c) => {
+                const postUrl = `${window.location.origin}/colony/${c.slug}`
+                const boardUrl = `${postUrl}/board?key=${c.board_token}`
+                return (
+                  <div
+                    key={c.id}
+                    className="flex flex-col gap-2 rounded-xl border border-line bg-white p-4 shadow-sm"
+                  >
+                    <div>
+                      <p className="font-bold text-ink">{c.name}</p>
+                      <p className="text-xs text-inkmuted">投稿 {c.post_count}件</p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold text-inkmuted">
+                        参加者に配るURL(QRコードにする用)
+                      </p>
+                      <p className="break-all text-xs text-ink">{postUrl}</p>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(postUrl, '投稿URL')}
+                        className="mt-1 rounded-lg border border-line px-2 py-1 text-xs text-accent"
+                      >
+                        コピー
+                      </button>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold text-inkmuted">
+                        運営担当者に渡すURL(一言の閲覧のみ・取扱注意)
+                      </p>
+                      <p className="break-all text-xs text-ink">{boardUrl}</p>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(boardUrl, '運営者URL')}
+                        className="mt-1 rounded-lg border border-line px-2 py-1 text-xs text-accent"
+                      >
+                        コピー
+                      </button>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        )}
+
+        {tab !== 'colonies' && list.length === 0 && (
           <p className="text-sm text-inkmuted">
             {tab === 'reported' ? '通報された投稿はありません。' : '投稿がありません。'}
           </p>
         )}
 
         <div className="flex flex-col gap-3">
-          {list.map((p) => {
+          {(tab === 'colonies' ? [] : list).map((p) => {
             const id = tab === 'reported' ? p.pose_id : p.id
             return (
               <div key={id} className="flex gap-3 rounded-xl border border-line bg-white p-3 shadow-sm">
