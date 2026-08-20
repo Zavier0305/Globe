@@ -25,6 +25,7 @@ export default function AdminPanel() {
   const [newCountryCode, setNewCountryCode] = useState('')
   const [addSubmitting, setAddSubmitting] = useState(false)
   const [addError, setAddError] = useState(null)
+  const [addProcessingFile, setAddProcessingFile] = useState(false)
   const addFileInputRef = useRef(null)
 
   async function loadReported(pw) {
@@ -79,11 +80,25 @@ export default function AdminPanel() {
     setActionMsg('削除しました。')
   }
 
-  function handleAddFileChange(e) {
+  async function handleAddFileChange(e) {
     const f = e.target.files && e.target.files[0]
     if (!f) return
-    setNewFile(f)
-    setNewPreviewUrl(URL.createObjectURL(f))
+    setAddError(null)
+    setAddProcessingFile(true)
+    try {
+      // HEIC等ブラウザで表示できない形式のまま保存されないよう、選択直後にJPEGへ正規化する
+      const normalized = await resizeImageFile(f)
+      if (normalized.type !== 'image/jpeg') {
+        setAddError(
+          'この形式の画像は読み込めませんでした。別のファイルをお試しください。'
+        )
+        return
+      }
+      setNewFile(normalized)
+      setNewPreviewUrl(URL.createObjectURL(normalized))
+    } finally {
+      setAddProcessingFile(false)
+    }
   }
 
   function resetAddForm() {
@@ -109,13 +124,11 @@ export default function AdminPanel() {
 
     setAddSubmitting(true)
     try {
-      const resized = await resizeImageFile(newFile)
-      const ext = (resized.name.split('.').pop() || 'jpg').toLowerCase()
-      const path = `${country.code}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const path = `${country.code}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`
 
       const { error: uploadError } = await supabase.storage
         .from(POSE_IMAGES_BUCKET)
-        .upload(path, resized, { cacheControl: '3600', upsert: false })
+        .upload(path, newFile, { cacheControl: '3600', upsert: false })
       if (uploadError) {
         console.error(uploadError)
         setAddError('画像のアップロードに失敗しました。')
@@ -225,8 +238,10 @@ export default function AdminPanel() {
               />
             ) : (
               <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-accent/40 bg-accentsoft/30 py-8 text-accent">
-                <span className="text-2xl">📷</span>
-                <span className="text-sm font-semibold">画像ファイルを選択</span>
+                <span className="text-2xl">{addProcessingFile ? '⏳' : '📷'}</span>
+                <span className="text-sm font-semibold">
+                  {addProcessingFile ? '画像を処理中...' : '画像ファイルを選択'}
+                </span>
                 <input
                   ref={addFileInputRef}
                   type="file"

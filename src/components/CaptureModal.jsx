@@ -17,6 +17,7 @@ export default function CaptureModal({ onClose, onPosted }) {
   const [errorMsg, setErrorMsg] = useState(null)
   const [geoHint, setGeoHint] = useState(null)
   const [agreed, setAgreed] = useState(false)
+  const [processingFile, setProcessingFile] = useState(false)
   const fileInputRef = useRef(null)
   const countryFieldRef = useRef(null)
 
@@ -69,7 +70,7 @@ export default function CaptureModal({ onClose, onPosted }) {
     )
   }, [search])
 
-  function handleFileChange(e) {
+  async function handleFileChange(e) {
     const f = e.target.files && e.target.files[0]
     if (!f) {
       setCameraError(true)
@@ -82,8 +83,23 @@ export default function CaptureModal({ onClose, onPosted }) {
     }
     setErrorMsg(null)
     setCameraError(false)
-    setFile(f)
-    setPreviewUrl(URL.createObjectURL(f))
+    setProcessingFile(true)
+    try {
+      // 選択直後にJPEGへ正規化しておく(HEIC等ブラウザで表示できない形式の
+      // ままプレビュー・投稿されてしまうのを防ぐため、プレビューと投稿を同じ
+      // ファイルにする)
+      const normalized = await resizeImageFile(f)
+      if (normalized.type !== 'image/jpeg') {
+        setErrorMsg(
+          'この形式の画像は読み込めませんでした。別の写真を選ぶか、スクリーンショットなどJPEG/PNG形式でお試しください。'
+        )
+        return
+      }
+      setFile(normalized)
+      setPreviewUrl(URL.createObjectURL(normalized))
+    } finally {
+      setProcessingFile(false)
+    }
   }
 
   function handleRetake() {
@@ -121,15 +137,13 @@ export default function CaptureModal({ onClose, onPosted }) {
 
     setSubmitting(true)
     try {
-      const resized = await resizeImageFile(file)
-      const ext = (resized.name.split('.').pop() || 'jpg').toLowerCase()
       const path = `${selectedCountry.code}/${Date.now()}-${Math.random()
         .toString(36)
-        .slice(2)}.${ext}`
+        .slice(2)}.jpg`
 
       const { error: uploadError } = await supabase.storage
         .from(POSE_IMAGES_BUCKET)
-        .upload(path, resized, { cacheControl: '3600', upsert: false })
+        .upload(path, file, { cacheControl: '3600', upsert: false })
       if (uploadError) {
         console.error(uploadError)
         setErrorMsg('画像のアップロードに失敗しました。通信環境を確認して再度お試しください。')
@@ -202,8 +216,10 @@ export default function CaptureModal({ onClose, onPosted }) {
         {!previewUrl && (
           <div className="mb-4">
             <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-accent/40 bg-accentsoft/30 px-4 py-10 text-center text-accent">
-              <span className="text-3xl">📷</span>
-              <span className="font-semibold">タップして撮影</span>
+              <span className="text-3xl">{processingFile ? '⏳' : '📷'}</span>
+              <span className="font-semibold">
+                {processingFile ? '画像を処理中...' : 'タップして撮影'}
+              </span>
               <input
                 ref={fileInputRef}
                 type="file"
