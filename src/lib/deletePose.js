@@ -20,6 +20,7 @@ export async function deleteOwnPose(poseId, token) {
     return { success: false }
   }
   await removeStorageFile(result.storage_path)
+  await removeStorageFile(result.thumbnail_storage_path)
   return { success: true }
 }
 
@@ -34,5 +35,6 @@ export async function adminDeletePose(password, poseId) {
     return { success: false }
   }
   await removeStorageFile(result.storage_path)
+  await removeStorageFile(result.thumbnail_storage_path)
   return { success: true }
 }

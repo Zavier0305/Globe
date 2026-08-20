@@ -100,7 +100,7 @@ export default function SpotBoard({ slug, token }) {
                 className="flex gap-3 rounded-xl border border-line bg-white p-3 shadow-sm"
               >
                 <img
-                  src={r.image_url}
+                  src={r.thumbnail_url || r.image_url}
                   alt={r.country_name}
                   className="h-16 w-16 shrink-0 rounded-lg object-cover"
                   loading="lazy"

@@ -132,7 +132,7 @@ export default function SpotPage({ slug }) {
                 className="flex gap-3 rounded-xl border border-line bg-white p-3 shadow-sm"
               >
                 <img
-                  src={p.image_url}
+                  src={p.thumbnail_url || p.image_url}
                   alt={p.country_name}
                   className="h-20 w-20 shrink-0 rounded-lg object-cover"
                   loading="lazy"

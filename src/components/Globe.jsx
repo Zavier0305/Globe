@@ -16,7 +16,7 @@ function aggregateByCountry(points) {
       existing.poses.push(p)
       if (p.created_at > existing.latest_created_at) {
         existing.latest_created_at = p.created_at
-        existing.image_url = p.image_url
+        existing.thumbnail_url = p.thumbnail_url || p.image_url
       }
     } else {
       map.set(p.country_code, {
@@ -25,7 +25,7 @@ function aggregateByCountry(points) {
         lat: p.lat,
         lng: p.lng,
         poses: [p],
-        image_url: p.image_url,
+        thumbnail_url: p.thumbnail_url || p.image_url,
         latest_created_at: p.created_at,
       })
     }
@@ -40,7 +40,7 @@ function createPhotoPanel(d, onClick) {
   el.title = `${d.country_name}(${d.poses.length}件)`
 
   const img = document.createElement('img')
-  img.src = d.image_url
+  img.src = d.thumbnail_url
   img.alt = d.country_name
   img.loading = 'lazy'
   el.appendChild(img)

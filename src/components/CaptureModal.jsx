@@ -5,7 +5,7 @@ import { fetchAllSpotsWithLocation } from '../lib/spots'
 import { saveDeleteToken } from '../lib/localDeleteTokens'
 import { playPostSuccessSound } from '../lib/sound'
 import { getDeviceId } from '../lib/deviceId'
-import { resizeImageFile } from '../lib/resizeImage'
+import { resizeImageFile, createThumbnailFile } from '../lib/resizeImage'
 import { useTranslation } from '../lib/i18n/LanguageContext.jsx'
 
 const MESSAGE_MAX_LENGTH = 80
@@ -166,9 +166,11 @@ export default function CaptureModal({ onClose, onPosted, spot = null, allowSpot
 
     setSubmitting(true)
     try {
-      const path = `${selectedCountry.code}/${Date.now()}-${Math.random()
+      const base = `${selectedCountry.code}/${Date.now()}-${Math.random()
         .toString(36)
-        .slice(2)}.jpg`
+        .slice(2)}`
+      const path = `${base}.jpg`
+      const thumbPath = `${base}-thumb.jpg`
 
       const { error: uploadError } = await supabase.storage
         .from(POSE_IMAGES_BUCKET)
@@ -177,6 +179,21 @@ export default function CaptureModal({ onClose, onPosted, spot = null, allowSpot
         console.error(uploadError)
         setErrorMsg(t('capture.errUploadFail'))
         return
+      }
+
+      // 地球儀のピンやサムネイル一覧は、この小さな画像だけを読み込むことで
+      // フル解像度の写真をたくさん同時デコードしてメモリを圧迫しないようにする
+      const thumbnailFile = await createThumbnailFile(file).catch(() => null)
+      let thumbnailUrl = null
+      if (thumbnailFile) {
+        const { error: thumbUploadError } = await supabase.storage
+          .from(POSE_IMAGES_BUCKET)
+          .upload(thumbPath, thumbnailFile, { cacheControl: '3600', upsert: false })
+        if (!thumbUploadError) {
+          thumbnailUrl = supabase.storage.from(POSE_IMAGES_BUCKET).getPublicUrl(thumbPath).data.publicUrl
+        } else {
+          console.error(thumbUploadError)
+        }
       }
 
       const { data: publicUrlData } = supabase.storage
@@ -194,6 +211,8 @@ export default function CaptureModal({ onClose, onPosted, spot = null, allowSpot
           p_device_id: getDeviceId(),
           p_storage_path: path,
           p_spot_id: selectedSpot?.id || null,
+          p_thumbnail_url: thumbnailUrl,
+          p_thumbnail_storage_path: thumbnailUrl ? thumbPath : null,
         }
       )
       if (insertError) {
@@ -218,6 +237,8 @@ export default function CaptureModal({ onClose, onPosted, spot = null, allowSpot
           country_code: selectedCountry.code,
           country_name: selectedCountry.name_ja,
           image_url: imageUrl,
+          thumbnail_url: thumbnailUrl || imageUrl,
+          spot_id: selectedSpot?.id || null,
           message: selectedSpot ? message.trim() || null : null,
           created_at: created?.created_at || new Date().toISOString(),
         })

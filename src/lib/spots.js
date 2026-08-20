@@ -32,7 +32,7 @@ export async function fetchAllSpotsWithLocation() {
 export async function fetchSpotPoses(spotId) {
   const { data, error } = await supabase
     .from('poses')
-    .select('id, country_code, country_name, image_url, message, created_at')
+    .select('id, country_code, country_name, image_url, thumbnail_url, message, created_at')
     .eq('spot_id', spotId)
     .order('created_at', { ascending: false })
   if (error) {

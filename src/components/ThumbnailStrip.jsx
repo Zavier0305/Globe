@@ -16,7 +16,7 @@ export default function ThumbnailStrip({ points, onSelect }) {
           title={pose.country_name}
         >
           <img
-            src={pose.image_url}
+            src={pose.thumbnail_url || pose.image_url}
             alt={pose.country_name}
             className="h-full w-full object-cover"
             loading="lazy"

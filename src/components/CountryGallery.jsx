@@ -38,7 +38,7 @@ export default function CountryGallery({ countryPoint, onClose, onSelectPose }) 
               className="relative aspect-square overflow-hidden rounded-lg bg-surfacemuted"
             >
               <img
-                src={pose.image_url}
+                src={pose.thumbnail_url || pose.image_url}
                 alt={pose.country_name}
                 className="h-full w-full object-cover"
                 loading="lazy"

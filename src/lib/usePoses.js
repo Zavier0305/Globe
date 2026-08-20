@@ -16,6 +16,8 @@ function toPoint(pose) {
     country_code: pose.country_code,
     country_name: pose.country_name || country.name_ja,
     image_url: pose.image_url,
+    // サムネイル未生成の古い投稿(この機能追加前のもの)はフル画像にフォールバックする
+    thumbnail_url: pose.thumbnail_url || pose.image_url,
     message: pose.message || null,
     spot_id: pose.spot_id || null,
     created_at: pose.created_at,
