@@ -52,6 +52,14 @@ function createPhotoPanel(d, onClick) {
     el.appendChild(badge)
   }
 
+  // いずれかの投稿に口コミ(一言)が付いていれば、他の人が読めることが分かるよう印を付ける
+  if (d.poses.some((p) => p.message)) {
+    const commentBadge = document.createElement('span')
+    commentBadge.className = 'globe-photo-comment-badge'
+    commentBadge.textContent = '💬'
+    el.appendChild(commentBadge)
+  }
+
   el.addEventListener('click', (e) => {
     e.stopPropagation()
     onClick(d)

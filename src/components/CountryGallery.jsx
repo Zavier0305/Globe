@@ -35,7 +35,7 @@ export default function CountryGallery({ countryPoint, onClose, onSelectPose }) 
               key={pose.id}
               type="button"
               onClick={() => onSelectPose(pose)}
-              className="aspect-square overflow-hidden rounded-lg bg-surfacemuted"
+              className="relative aspect-square overflow-hidden rounded-lg bg-surfacemuted"
             >
               <img
                 src={pose.image_url}
@@ -43,6 +43,11 @@ export default function CountryGallery({ countryPoint, onClose, onSelectPose }) 
                 className="h-full w-full object-cover"
                 loading="lazy"
               />
+              {pose.message && (
+                <span className="absolute bottom-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-xs shadow">
+                  💬
+                </span>
+              )}
             </button>
           ))}
         </div>

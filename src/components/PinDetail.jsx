@@ -88,6 +88,12 @@ export default function PinDetail({ pose, onClose, onDeleted }) {
             {new Date(pose.created_at).toLocaleString('ja-JP')}
           </p>
 
+          {pose.message && (
+            <p className="mt-3 whitespace-pre-wrap break-words rounded-xl bg-surfacemuted px-3 py-2 text-sm text-ink">
+              💬 {pose.message}
+            </p>
+          )}
+
           {actionMsg && (
             <p className="mt-2 text-xs text-accent">{actionMsg}</p>
           )}

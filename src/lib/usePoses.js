@@ -16,6 +16,8 @@ function toPoint(pose) {
     country_code: pose.country_code,
     country_name: pose.country_name || country.name_ja,
     image_url: pose.image_url,
+    message: pose.message || null,
+    spot_id: pose.spot_id || null,
     created_at: pose.created_at,
     report_count: pose.report_count || 0,
   }
